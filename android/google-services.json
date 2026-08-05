@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "836127423684",
+    "project_id": "distribution-load-register",
+    "storage_bucket": "distribution-load-register.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:836127423684:android:095e684ec5cbd3c612dd91",
+        "android_client_info": {
+          "package_name": "com.distribution.loads.distribution_load_register_final"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDk3_CDIBg1l7FohtYfmXB4tCBrPque7Ho"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

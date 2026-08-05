@@ -1,0 +1,3 @@
+ضع ملف google-services.json الذي نزّلته من Firebase داخل هذا المجلد:
+android/app/google-services.json
+ثم احذف هذا الملف النصي.

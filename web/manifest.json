@@ -1,0 +1,11 @@
+{
+  "name": "سجل أحمال الموزعات",
+  "short_name": "سجل الأحمال",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#142D50",
+  "description": "نظام تسجيل أحمال الموزعات",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

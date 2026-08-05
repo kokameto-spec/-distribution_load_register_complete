@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function role() { return userDoc().data.role; }
+    function isManager() { return role() in ['manager', 'president']; }
+    function isPresident() { return role() == 'president'; }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isPresident());
+      allow create, update, delete: if signedIn() && isPresident();
+    }
+
+    match /distributors/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && isPresident();
+    }
+
+    match /load_records/{id} {
+      allow create: if signedIn();
+      allow read: if signedIn() && isManager();
+      allow update, delete: if signedIn() && isPresident();
+    }
+
+    match /audit_logs/{id} {
+      allow create: if signedIn();
+      allow read: if signedIn() && isPresident();
+      allow update, delete: if false;
+    }
+  }
+}
