@@ -23,6 +23,11 @@ service cloud.firestore {
       allow update, delete: if signedIn() && isPresident();
     }
 
+    match /stations/{id} {
+      allow read: if signedIn() && isManager();
+      allow create, update, delete: if signedIn() && isPresident();
+    }
+
     match /audit_logs/{id} {
       allow create: if signedIn();
       allow read: if signedIn() && isPresident();

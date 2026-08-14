@@ -165,6 +165,7 @@ class _DistributorsScreenState extends State<DistributorsScreen> {
       id: distributor.id,
       code: distributor.code,
       name: distributor.name,
+      type: distributor.type,
       active: value,
     );
 
@@ -202,6 +203,9 @@ class _DistributorsScreenState extends State<DistributorsScreen> {
           .toLowerCase()
           .contains(search) ||
           distributor.code
+              .toLowerCase()
+              .contains(search) ||
+          distributor.type
               .toLowerCase()
               .contains(search);
     }).toList(growable: false);
@@ -272,7 +276,7 @@ class _DistributorsScreenState extends State<DistributorsScreen> {
                           },
                           decoration: InputDecoration(
                             labelText:
-                            'البحث باسم أو كود الموزع',
+                            'البحث باسم أو كود أو نوع الموزع',
                             prefixIcon:
                             const Icon(Icons.search),
                             suffixIcon:
@@ -467,6 +471,12 @@ class _DistributorCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         'الكود: ${distributor.code}',
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        distributor.type.trim().isEmpty
+                            ? 'النوع: غير محدد'
+                            : 'النوع: ${distributor.type}',
                       ),
                     ],
                   ),

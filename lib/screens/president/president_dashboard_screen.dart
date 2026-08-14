@@ -115,6 +115,13 @@ class _PresidentDashboardScreenState
     );
   }
 
+  void _openStations() {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.stations,
+    );
+  }
+
   void _openDataEntry() {
     Navigator.pushNamed(
       context,
@@ -164,17 +171,6 @@ class _PresidentDashboardScreenState
       distributor.lastRecordAt == null,
     )
         .toList(growable: false);
-
-    final maximumLoadDistributor =
-    _findMaximumLoadDistributor(
-      distributors,
-    );
-
-    final minimumLoadDistributor =
-    _findMinimumLoadDistributor(
-      distributors,
-    );
-
     final userName =
     user?.displayName.trim().isNotEmpty == true
         ? user!.displayName
@@ -324,65 +320,6 @@ class _PresidentDashboardScreenState
                     const SizedBox(height: 24),
 
                     Text(
-                      'ملخص الأحمال',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(
-                        fontWeight:
-                        FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    LayoutBuilder(
-                      builder: (
-                          context,
-                          constraints,
-                          ) {
-                        final cardWidth =
-                        constraints.maxWidth >= 700
-                            ? (constraints.maxWidth -
-                            12) /
-                            2
-                            : constraints.maxWidth;
-
-                        return Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            SizedBox(
-                              width: cardWidth,
-                              child: _LoadSummaryCard(
-                                title: 'أقصى حمل',
-                                distributor:
-                                maximumLoadDistributor,
-                                emptyMessage:
-                                'لا توجد أحمال مسجلة حتى الآن.',
-                                icon:
-                                Icons.trending_up,
-                              ),
-                            ),
-                            SizedBox(
-                              width: cardWidth,
-                              child: _LoadSummaryCard(
-                                title: 'أقل حمل',
-                                distributor:
-                                minimumLoadDistributor,
-                                emptyMessage:
-                                'لا توجد أحمال مسجلة حتى الآن.',
-                                icon:
-                                Icons.trending_down,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    Text(
                       'إدارة النظام',
                       style: Theme.of(context)
                           .textTheme
@@ -472,14 +409,9 @@ class _PresidentDashboardScreenState
                               width: buttonWidth,
                               child:
                               _DashboardActionButton(
-                                title: 'الإعدادات',
-                                icon:
-                                Icons.settings,
-                                onPressed: () {
-                                  _showComingSoon(
-                                    'الإعدادات',
-                                  );
-                                },
+                                title: 'أحمال المحطات',
+                                icon: Icons.electrical_services_outlined,
+                                onPressed: _openStations,
                               ),
                             ),
                           ],
@@ -659,53 +591,7 @@ class _PresidentDashboardScreenState
     return maximumWidth;
   }
 
-  Distributor? _findMaximumLoadDistributor(
-      List<Distributor> distributors,
-      ) {
-    final recorded = distributors
-        .where(
-          (item) =>
-      item.lastTotalLoad != null,
-    )
-        .toList();
 
-    if (recorded.isEmpty) {
-      return null;
-    }
-
-    recorded.sort(
-          (first, second) =>
-          second.lastTotalLoad!.compareTo(
-            first.lastTotalLoad!,
-          ),
-    );
-
-    return recorded.first;
-  }
-
-  Distributor? _findMinimumLoadDistributor(
-      List<Distributor> distributors,
-      ) {
-    final recorded = distributors
-        .where(
-          (item) =>
-      item.lastTotalLoad != null,
-    )
-        .toList();
-
-    if (recorded.isEmpty) {
-      return null;
-    }
-
-    recorded.sort(
-          (first, second) =>
-          first.lastTotalLoad!.compareTo(
-            second.lastTotalLoad!,
-          ),
-    );
-
-    return recorded.first;
-  }
 }
 
 class _StatisticsCard extends StatelessWidget {
@@ -747,75 +633,6 @@ class _StatisticsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(title),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadSummaryCard
-    extends StatelessWidget {
-  const _LoadSummaryCard({
-    required this.title,
-    required this.distributor,
-    required this.emptyMessage,
-    required this.icon,
-  });
-
-  final String title;
-  final Distributor? distributor;
-  final String emptyMessage;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final item = distributor;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              child: Icon(icon),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: item == null
-                  ? Text(emptyMessage)
-                  : Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight:
-                      FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 8,
-                  ),
-                  Text(
-                    '${item.lastTotalLoad?.toStringAsFixed(2) ?? '0'} أمبير',
-                    style:
-                    Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(
-                      fontWeight:
-                      FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 4,
-                  ),
-                  Text(item.name),
                 ],
               ),
             ),

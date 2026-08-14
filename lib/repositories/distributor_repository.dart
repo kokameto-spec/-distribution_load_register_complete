@@ -84,9 +84,11 @@ class DistributorRepository {
   Future<String> create({
     required String code,
     required String name,
+    required String type,
   }) async {
     final normalizedCode = code.trim().toUpperCase();
     final normalizedName = name.trim();
+    final normalizedType = type.trim();
 
     if (normalizedCode.isEmpty) {
       throw ArgumentError('كود الموزع مطلوب.');
@@ -94,6 +96,10 @@ class DistributorRepository {
 
     if (normalizedName.isEmpty) {
       throw ArgumentError('اسم الموزع مطلوب.');
+    }
+
+    if (normalizedType.isEmpty) {
+      throw ArgumentError('نوع الموزع مطلوب.');
     }
 
     if (await codeExists(normalizedCode)) {
@@ -105,6 +111,7 @@ class DistributorRepository {
     await document.set(<String, dynamic>{
       'code': normalizedCode,
       'name': normalizedName,
+      'type': normalizedType,
       'active': true,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -119,11 +126,13 @@ class DistributorRepository {
     required String id,
     required String code,
     required String name,
+    required String type,
     required bool active,
   }) async {
     final normalizedId = id.trim();
     final normalizedCode = code.trim().toUpperCase();
     final normalizedName = name.trim();
+    final normalizedType = type.trim();
 
     if (normalizedId.isEmpty) {
       throw ArgumentError('معرف الموزع غير صحيح.');
@@ -137,6 +146,10 @@ class DistributorRepository {
       throw ArgumentError('اسم الموزع مطلوب.');
     }
 
+    if (normalizedType.isEmpty) {
+      throw ArgumentError('نوع الموزع مطلوب.');
+    }
+
     if (await codeExists(
       normalizedCode,
       excludingId: normalizedId,
@@ -147,6 +160,7 @@ class DistributorRepository {
     await _collection.doc(normalizedId).update(<String, dynamic>{
       'code': normalizedCode,
       'name': normalizedName,
+      'type': normalizedType,
       'active': active,
       'updatedAt': FieldValue.serverTimestamp(),
     });

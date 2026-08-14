@@ -4,6 +4,7 @@ import 'package:excel/excel.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/distributor_model.dart';
 import '../../models/load_record.dart';
 
 class ReportExcelService {
@@ -24,390 +25,685 @@ class ReportExcelService {
     13,
     14,
     15,
+    16,
   ];
 
   static Future<void> exportReport({
     required List<LoadRecord> records,
+    required List<Distributor> distributors,
+    String? selectedDistributorId,
+    DateTime? selectedDateTime,
     DateTime? fromDate,
     DateTime? toDate,
+    bool allDistributorsHourly = false,
   }) async {
-    if (records.isEmpty) {
-      throw StateError('لا توجد بيانات لتصديرها.');
-    }
+    final excel =
+        Excel.createExcel();
 
-    final sortedRecords = List<LoadRecord>.from(records)
-      ..sort(
-        (first, second) =>
-            second.recordedAt.compareTo(first.recordedAt),
+    if (allDistributorsHourly) {
+      final hour =
+          selectedDateTime?.hour ?? 0;
+
+      final start =
+          fromDate ??
+          selectedDateTime ??
+          DateTime.now();
+
+      final end =
+          toDate ?? start;
+
+      final activeDistributors =
+          distributors
+              .where(
+                (item) => item.active,
+              )
+              .toList()
+            ..sort(
+              (a, b) =>
+                  a.name.compareTo(b.name),
+            );
+
+      for (final day
+          in _daysBetween(
+        start,
+        end,
+      )) {
+        final sheetName =
+            DateFormat(
+          'MM-dd',
+        ).format(day);
+
+        _buildDaySheet(
+          sheet:
+              excel[sheetName],
+          day: day,
+          hour: hour,
+          records: records,
+          distributors:
+              activeDistributors,
+        );
+      }
+    } else {
+      final distributor =
+          _findDistributor(
+        distributors,
+        selectedDistributorId,
       );
 
-    final excel = Excel.createExcel();
-
-    final detailsSheet = excel['تفاصيل السجلات'];
-    final summarySheet = excel['ملخص الخلايا'];
-
-    final defaultSheetName = excel.getDefaultSheet();
-
-    if (defaultSheetName != null &&
-        defaultSheetName != 'تفاصيل السجلات' &&
-        defaultSheetName != 'ملخص الخلايا') {
-      excel.delete(defaultSheetName);
+      _buildSingleDistributorSheet(
+        sheet:
+            excel['تفاصيل الموزع'],
+        records: records,
+        distributor: distributor,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
     }
 
-    _buildDetailsSheet(
-      sheet: detailsSheet,
-      records: sortedRecords,
-      fromDate: fromDate,
-      toDate: toDate,
-    );
+    final defaultSheetName =
+        excel.getDefaultSheet();
 
-    _buildSummarySheet(
-      sheet: summarySheet,
-      records: sortedRecords,
-      fromDate: fromDate,
-      toDate: toDate,
-    );
+    if (defaultSheetName != null &&
+        excel.sheets.length > 1) {
+      excel.delete(
+        defaultSheetName,
+      );
+    }
 
-    final bytes = excel.save();
+    final bytes =
+        excel.save();
 
-    if (bytes == null || bytes.isEmpty) {
-      throw StateError('تعذر إنشاء ملف Excel.');
+    if (bytes == null ||
+        bytes.isEmpty) {
+      throw StateError(
+        'تعذر إنشاء ملف Excel.',
+      );
     }
 
     await FileSaver.instance.saveFile(
-      name: _createFileNameWithoutExtension(),
-      bytes: Uint8List.fromList(bytes),
+      name:
+          'distribution_load_report_'
+          '${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}',
+      bytes:
+          Uint8List.fromList(bytes),
       fileExtension: 'xlsx',
-      mimeType: MimeType.microsoftExcel,
+      mimeType:
+          MimeType.microsoftExcel,
     );
   }
 
-  static void _buildDetailsSheet({
+  static void _buildDaySheet({
     required Sheet sheet,
+    required DateTime day,
+    required int hour,
     required List<LoadRecord> records,
-    required DateTime? fromDate,
-    required DateTime? toDate,
-  }) {
-    sheet.isRTL = true;
-
-    sheet.appendRow(
-      <CellValue>[
-        TextCellValue('تقرير أحمال الموزعات'),
-      ],
-    );
-
-    sheet.appendRow(
-      <CellValue>[
-        TextCellValue(_periodText(fromDate, toDate)),
-      ],
-    );
-
-    sheet.appendRow(const <CellValue>[]);
-
-    final headers = <CellValue>[
-      TextCellValue('اسم الموزع'),
-      TextCellValue('التاريخ'),
-      TextCellValue('الوقت'),
-      TextCellValue('اسم مدخل البيانات'),
-      TextCellValue('كود المستخدم'),
-      TextCellValue('إجمالي الحمل'),
-      ...cellNumbers.map(
-        (cellNumber) => TextCellValue('خلية $cellNumber'),
-      ),
-    ];
-
-    sheet.appendRow(headers);
-
-    for (final record in records) {
-      sheet.appendRow(
-        <CellValue>[
-          TextCellValue(record.distributorName),
-          TextCellValue(_formatDate(record.recordedAt)),
-          TextCellValue(_formatTime(record.recordedAt)),
-          TextCellValue(record.operatorName),
-          TextCellValue(record.createdByCode),
-          DoubleCellValue(record.totalLoad),
-          ...cellNumbers.map(
-            (cellNumber) => DoubleCellValue(
-              record.cellValues[cellNumber] ?? 0,
-            ),
-          ),
-        ],
-      );
-    }
-
-    _applyHeaderStyle(
-      sheet: sheet,
-      rowIndex: 3,
-      columnsCount: headers.length,
-    );
-
-    _setDetailsColumnWidths(sheet);
-  }
-
-  static void _buildSummarySheet({
-    required Sheet sheet,
-    required List<LoadRecord> records,
-    required DateTime? fromDate,
-    required DateTime? toDate,
+    required List<Distributor>
+        distributors,
   }) {
     sheet.isRTL = true;
 
     sheet.appendRow(
       <CellValue>[
         TextCellValue(
-          'ملخص الحمل الحالي وأقل وأقصى حمل لكل خلية',
+          'أحمال خلايا الموزعات',
         ),
       ],
     );
 
     sheet.appendRow(
       <CellValue>[
-        TextCellValue(_periodText(fromDate, toDate)),
+        TextCellValue(
+          'اليوم: ${_dayName(day)} - '
+          'التاريخ: ${_formatDate(day)} - '
+          'الفترة: ${_formatHourRange(hour)}',
+        ),
       ],
     );
 
-    sheet.appendRow(const <CellValue>[]);
+    sheet.appendRow(
+      const <CellValue>[],
+    );
 
-    final headers = <CellValue>[
-      TextCellValue('اسم الموزع'),
-      TextCellValue('الخلية'),
-      TextCellValue('الحمل الحالي'),
-      TextCellValue('أقل حمل'),
-      TextCellValue('أقصى حمل'),
-      TextCellValue('وقت الحمل الحالي'),
-      TextCellValue('وقت أقل حمل'),
-      TextCellValue('وقت أقصى حمل'),
-      TextCellValue('مدخل آخر قراءة'),
+    final headers =
+        <CellValue>[
+      TextCellValue(
+        'اسم الموزع',
+      ),
+      TextCellValue(
+        'نوع الموزع',
+      ),
+      TextCellValue(
+        'كود الموزع',
+      ),
+      TextCellValue(
+        'الحالة',
+      ),
+      ...cellNumbers.expand(
+        (cell) => <CellValue>[
+          TextCellValue(
+            'خلية $cell - الحمل',
+          ),
+          TextCellValue(
+            'خلية $cell - أقل',
+          ),
+          TextCellValue(
+            'خلية $cell - أقصى',
+          ),
+        ],
+      ),
     ];
 
     sheet.appendRow(headers);
 
-    final grouped = _groupByDistributor(records);
-
-    for (final distributorRecords in grouped.values) {
-      final latest = distributorRecords.first;
-      final statistics = _calculateStatistics(
-        distributorRecords,
+    for (final distributor
+        in distributors) {
+      final currentRecord =
+          _latestRecord(
+        records: records,
+        distributorId:
+            distributor.id,
+        day: day,
+        hour: hour,
       );
 
-      for (final cellNumber in cellNumbers) {
-        final cell = statistics[cellNumber]!;
-
-        sheet.appendRow(
-          <CellValue>[
-            TextCellValue(latest.distributorName),
-            IntCellValue(cellNumber),
-            DoubleCellValue(cell.current ?? 0),
-            DoubleCellValue(cell.minimum ?? 0),
-            DoubleCellValue(cell.maximum ?? 0),
-            TextCellValue(
-              _formatDateTime(latest.recordedAt),
+      sheet.appendRow(
+        <CellValue>[
+          TextCellValue(
+            distributor.name,
+          ),
+          TextCellValue(
+            _distributorType(
+              distributor,
             ),
-            TextCellValue(
-              cell.minimumRecord == null
-                  ? ''
-                  : _formatDateTime(
-                      cell.minimumRecord!.recordedAt,
-                    ),
-            ),
-            TextCellValue(
-              cell.maximumRecord == null
-                  ? ''
-                  : _formatDateTime(
-                      cell.maximumRecord!.recordedAt,
-                    ),
-            ),
-            TextCellValue(latest.operatorName),
-          ],
-        );
-      }
-    }
+          ),
+          TextCellValue(
+            distributor.code,
+          ),
+          TextCellValue(
+            currentRecord == null
+                ? 'لم يسجل'
+                : 'مسجل',
+          ),
+          ...cellNumbers.expand(
+            (cell) {
+              final range =
+                  _cellRange(
+                records: records,
+                distributorId:
+                    distributor.id,
+                cellNumber:
+                    cell,
+              );
 
-    _applyHeaderStyle(
-      sheet: sheet,
-      rowIndex: 3,
-      columnsCount: headers.length,
-    );
-
-    _setSummaryColumnWidths(sheet);
-  }
-
-  static Map<String, List<LoadRecord>> _groupByDistributor(
-    List<LoadRecord> records,
-  ) {
-    final result = <String, List<LoadRecord>>{};
-
-    for (final record in records) {
-      final key = record.distributorId.trim().isNotEmpty
-          ? record.distributorId.trim()
-          : record.distributorName.trim();
-
-      result.putIfAbsent(
-        key,
-        () => <LoadRecord>[],
-      );
-
-      result[key]!.add(record);
-    }
-
-    for (final distributorRecords in result.values) {
-      distributorRecords.sort(
-        (first, second) =>
-            second.recordedAt.compareTo(first.recordedAt),
+              return <CellValue>[
+                currentRecord == null
+                    ? TextCellValue(
+                        '',
+                      )
+                    : DoubleCellValue(
+                        currentRecord
+                                .cellValues[
+                            cell] ??
+                        0,
+                      ),
+                range.$1 == null
+                    ? TextCellValue(
+                        '',
+                      )
+                    : DoubleCellValue(
+                        range.$1!,
+                      ),
+                range.$2 == null
+                    ? TextCellValue(
+                        '',
+                      )
+                    : DoubleCellValue(
+                        range.$2!,
+                      ),
+              ];
+            },
+          ),
+        ],
       );
     }
 
-    return result;
-  }
-
-  static Map<int, _ExcelCellStatistics> _calculateStatistics(
-    List<LoadRecord> records,
-  ) {
-    final result = <int, _ExcelCellStatistics>{};
-    final latest = records.first;
-
-    for (final cellNumber in cellNumbers) {
-      double? minimum;
-      double? maximum;
-
-      LoadRecord? minimumRecord;
-      LoadRecord? maximumRecord;
-
-      for (final record in records) {
-        final value = record.cellValues[cellNumber];
-
-        if (value == null) {
-          continue;
-        }
-
-        if (minimum == null || value < minimum) {
-          minimum = value;
-          minimumRecord = record;
-        }
-
-        if (maximum == null || value > maximum) {
-          maximum = value;
-          maximumRecord = record;
-        }
-      }
-
-      result[cellNumber] = _ExcelCellStatistics(
-        current: latest.cellValues[cellNumber],
-        minimum: minimum,
-        maximum: maximum,
-        minimumRecord: minimumRecord,
-        maximumRecord: maximumRecord,
-      );
-    }
-
-    return result;
-  }
-
-  static void _applyHeaderStyle({
-    required Sheet sheet,
-    required int rowIndex,
-    required int columnsCount,
-  }) {
-    for (var columnIndex = 0;
-        columnIndex < columnsCount;
-        columnIndex++) {
-      final cell = sheet.cell(
-        CellIndex.indexByColumnRow(
-          columnIndex: columnIndex,
-          rowIndex: rowIndex,
+    for (var index = 0;
+        index < headers.length;
+        index++) {
+      final cell =
+          sheet.cell(
+        CellIndex
+            .indexByColumnRow(
+          columnIndex: index,
+          rowIndex: 3,
         ),
       );
 
-      cell.cellStyle = CellStyle(
+      cell.cellStyle =
+          CellStyle(
         bold: true,
-        horizontalAlign: HorizontalAlign.Center,
-        verticalAlign: VerticalAlign.Center,
-        textWrapping: TextWrapping.WrapText,
+        horizontalAlign:
+            HorizontalAlign.Center,
+        verticalAlign:
+            VerticalAlign.Center,
+        textWrapping:
+            TextWrapping.WrapText,
+      );
+
+      sheet.setColumnWidth(
+        index,
+        index < 4 ? 16 : 12,
       );
     }
   }
 
-  static void _setDetailsColumnWidths(Sheet sheet) {
-    sheet.setColumnWidth(0, 24);
-    sheet.setColumnWidth(1, 13);
-    sheet.setColumnWidth(2, 11);
-    sheet.setColumnWidth(3, 24);
-    sheet.setColumnWidth(4, 14);
-    sheet.setColumnWidth(5, 14);
+  static void
+      _buildSingleDistributorSheet({
+    required Sheet sheet,
+    required List<LoadRecord> records,
+    required Distributor?
+        distributor,
+    required DateTime? fromDate,
+    required DateTime? toDate,
+  }) {
+    sheet.isRTL = true;
 
-    for (var index = 6;
-        index < 6 + cellNumbers.length;
+    final sorted =
+        List<LoadRecord>.from(records)
+          ..sort(
+            (a, b) => b.recordedAt
+                .compareTo(
+              a.recordedAt,
+            ),
+          );
+
+    sheet.appendRow(
+      <CellValue>[
+        TextCellValue(
+          'تفاصيل أحمال الموزع',
+        ),
+      ],
+    );
+
+    sheet.appendRow(
+      <CellValue>[
+        TextCellValue(
+          '${distributor?.name ?? (sorted.isEmpty ? '' : sorted.first.distributorName)}'
+          ' - النوع: ${_distributorType(distributor)}',
+        ),
+      ],
+    );
+
+    if (fromDate != null &&
+        toDate != null) {
+      sheet.appendRow(
+        <CellValue>[
+          TextCellValue(
+            'من ${_formatDate(fromDate)} '
+            'إلى ${_formatDate(toDate)}',
+          ),
+        ],
+      );
+    }
+
+    if (sorted.isNotEmpty) {
+      final maximum = _maximumRecord(sorted)!;
+      final minimum = _minimumRecord(sorted)!;
+
+      sheet.appendRow(
+        <CellValue>[
+          TextCellValue(
+            'أقصى حمل للموزع: '
+            '${maximum.totalLoad.toStringAsFixed(2)} أمبير'
+            ' - ${_formatDateTime(maximum.recordedAt)}',
+          ),
+        ],
+      );
+
+      sheet.appendRow(
+        <CellValue>[
+          TextCellValue(
+            'أقل حمل للموزع: '
+            '${minimum.totalLoad.toStringAsFixed(2)} أمبير'
+            ' - ${_formatDateTime(minimum.recordedAt)}',
+          ),
+        ],
+      );
+
+      sheet.appendRow(
+        const <CellValue>[],
+      );
+
+      sheet.appendRow(
+        <CellValue>[
+          TextCellValue('الخلية'),
+          TextCellValue('أقل حمل'),
+          TextCellValue('أقصى حمل'),
+        ],
+      );
+
+      for (final cell in cellNumbers) {
+        final range = _cellRange(
+          records: sorted,
+          distributorId: sorted.first.distributorId,
+          cellNumber: cell,
+        );
+
+        sheet.appendRow(
+          <CellValue>[
+            IntCellValue(cell),
+            range.$1 == null
+                ? TextCellValue('')
+                : DoubleCellValue(range.$1!),
+            range.$2 == null
+                ? TextCellValue('')
+                : DoubleCellValue(range.$2!),
+          ],
+        );
+      }
+
+      sheet.appendRow(
+        const <CellValue>[],
+      );
+    } else {
+      sheet.appendRow(
+        const <CellValue>[],
+      );
+    }
+
+    final headers =
+        <CellValue>[
+      TextCellValue('التاريخ'),
+      TextCellValue('الوقت'),
+      TextCellValue(
+        'مدخل البيانات',
+      ),
+      TextCellValue(
+        'إجمالي الحمل',
+      ),
+      ...cellNumbers.map(
+        (cell) => TextCellValue(
+          'خلية $cell',
+        ),
+      ),
+    ];
+
+    sheet.appendRow(headers);
+
+    for (final record
+        in sorted) {
+      sheet.appendRow(
+        <CellValue>[
+          TextCellValue(
+            _formatDate(
+              record.recordedAt,
+            ),
+          ),
+          TextCellValue(
+            DateFormat('HH:mm')
+                .format(
+              record.recordedAt,
+            ),
+          ),
+          TextCellValue(
+            record.operatorName,
+          ),
+          DoubleCellValue(
+            record.totalLoad,
+          ),
+          ...cellNumbers.map<
+              CellValue>(
+            (cell) =>
+                DoubleCellValue(
+              record.cellValues[cell] ??
+                  0,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final headerRowIndex =
+        sheet.maxRows - sorted.length - 1;
+
+    for (var index = 0;
+        index < headers.length;
         index++) {
-      sheet.setColumnWidth(index, 12);
+      final cell =
+          sheet.cell(
+        CellIndex.indexByColumnRow(
+          columnIndex: index,
+          rowIndex: headerRowIndex,
+        ),
+      );
+
+      cell.cellStyle =
+          CellStyle(
+        bold: true,
+        horizontalAlign:
+            HorizontalAlign.Center,
+        verticalAlign:
+            VerticalAlign.Center,
+        textWrapping:
+            TextWrapping.WrapText,
+      );
+
+      sheet.setColumnWidth(
+        index,
+        index == 2 ? 22 : 13,
+      );
     }
   }
 
-  static void _setSummaryColumnWidths(Sheet sheet) {
-    sheet.setColumnWidth(0, 24);
-    sheet.setColumnWidth(1, 10);
-    sheet.setColumnWidth(2, 15);
-    sheet.setColumnWidth(3, 15);
-    sheet.setColumnWidth(4, 15);
-    sheet.setColumnWidth(5, 20);
-    sheet.setColumnWidth(6, 20);
-    sheet.setColumnWidth(7, 20);
-    sheet.setColumnWidth(8, 24);
-  }
-
-  static String _periodText(
-    DateTime? fromDate,
-    DateTime? toDate,
+  static LoadRecord? _maximumRecord(
+    List<LoadRecord> records,
   ) {
-    if (fromDate == null && toDate == null) {
-      return 'جميع الفترات المتاحة';
+    if (records.isEmpty) {
+      return null;
     }
 
-    if (fromDate != null && toDate != null) {
-      return 'الفترة من ${_formatDate(fromDate)} '
-          'إلى ${_formatDate(toDate)}';
+    var result = records.first;
+
+    for (final record in records.skip(1)) {
+      if (record.totalLoad > result.totalLoad) {
+        result = record;
+      }
     }
 
-    if (fromDate != null) {
-      return 'من تاريخ ${_formatDate(fromDate)}';
+    return result;
+  }
+
+  static LoadRecord? _minimumRecord(
+    List<LoadRecord> records,
+  ) {
+    if (records.isEmpty) {
+      return null;
     }
 
-    return 'حتى تاريخ ${_formatDate(toDate!)}';
+    var result = records.first;
+
+    for (final record in records.skip(1)) {
+      if (record.totalLoad < result.totalLoad) {
+        result = record;
+      }
+    }
+
+    return result;
   }
 
-  static String _formatDate(DateTime value) {
-    return DateFormat('yyyy-MM-dd').format(value);
+  static String _formatDateTime(
+    DateTime value,
+  ) {
+    return DateFormat(
+      'yyyy/MM/dd - HH:mm',
+    ).format(value);
   }
 
-  static String _formatTime(DateTime value) {
-    return DateFormat('HH:mm').format(value);
+  static LoadRecord?
+      _latestRecord({
+    required List<LoadRecord> records,
+    required String distributorId,
+    required DateTime day,
+    required int hour,
+  }) {
+    LoadRecord? result;
+
+    for (final record in records) {
+      if (record.distributorId !=
+              distributorId ||
+          record.recordedAt.year !=
+              day.year ||
+          record.recordedAt.month !=
+              day.month ||
+          record.recordedAt.day !=
+              day.day ||
+          record.recordedAt.hour !=
+              hour) {
+        continue;
+      }
+
+      if (result == null ||
+          record.recordedAt
+              .isAfter(
+            result.recordedAt,
+          )) {
+        result = record;
+      }
+    }
+
+    return result;
   }
 
-  static String _formatDateTime(DateTime value) {
-    return DateFormat('yyyy-MM-dd HH:mm').format(value);
+  static (double?, double?)
+      _cellRange({
+    required List<LoadRecord> records,
+    required String distributorId,
+    required int cellNumber,
+  }) {
+    double? minimum;
+    double? maximum;
+
+    for (final record in records) {
+      if (record.distributorId !=
+          distributorId) {
+        continue;
+      }
+
+      final value =
+          record.cellValues[cellNumber];
+
+      if (value == null) {
+        continue;
+      }
+
+      if (minimum == null ||
+          value < minimum) {
+        minimum = value;
+      }
+
+      if (maximum == null ||
+          value > maximum) {
+        maximum = value;
+      }
+    }
+
+    return (
+      minimum,
+      maximum,
+    );
   }
 
-  static String _createFileNameWithoutExtension() {
-    final timestamp = DateFormat(
-      'yyyyMMdd_HHmmss',
-    ).format(DateTime.now());
+  static List<DateTime> _daysBetween(
+    DateTime from,
+    DateTime to,
+  ) {
+    final result =
+        <DateTime>[];
 
-    return 'distribution_load_report_$timestamp';
+    var current = DateTime(
+      from.year,
+      from.month,
+      from.day,
+    );
+
+    final end = DateTime(
+      to.year,
+      to.month,
+      to.day,
+    );
+
+    while (!current.isAfter(end)) {
+      result.add(current);
+
+      current = current.add(
+        const Duration(days: 1),
+      );
+    }
+
+    return result;
   }
-}
 
-class _ExcelCellStatistics {
-  const _ExcelCellStatistics({
-    required this.current,
-    required this.minimum,
-    required this.maximum,
-    required this.minimumRecord,
-    required this.maximumRecord,
-  });
+  static Distributor?
+      _findDistributor(
+    List<Distributor> distributors,
+    String? id,
+  ) {
+    if (id == null) {
+      return null;
+    }
 
-  final double? current;
-  final double? minimum;
-  final double? maximum;
-  final LoadRecord? minimumRecord;
-  final LoadRecord? maximumRecord;
+    for (final distributor
+        in distributors) {
+      if (distributor.id == id) {
+        return distributor;
+      }
+    }
+
+    return null;
+  }
+
+  static String _distributorType(
+    Distributor? distributor,
+  ) {
+    final type =
+        distributor?.type.trim() ?? '';
+
+    return type.isEmpty
+        ? 'غير محدد'
+        : type;
+  }
+
+  static String _dayName(
+    DateTime value,
+  ) {
+    const names = <int, String>{
+      1: 'الاثنين',
+      2: 'الثلاثاء',
+      3: 'الأربعاء',
+      4: 'الخميس',
+      5: 'الجمعة',
+      6: 'السبت',
+      7: 'الأحد',
+    };
+
+    return names[value.weekday] ?? '';
+  }
+
+  static String _formatDate(
+    DateTime value,
+  ) {
+    return DateFormat(
+      'yyyy/MM/dd',
+    ).format(value);
+  }
+
+  static String _formatHourRange(
+    int hour,
+  ) {
+    final value =
+        hour.toString().padLeft(2, '0');
+
+    return 'الساعة $hour '
+        '($value:00 - $value:59)';
+  }
 }

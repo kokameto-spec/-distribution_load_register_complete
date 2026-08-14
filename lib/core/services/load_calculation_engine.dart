@@ -22,6 +22,7 @@ class LoadCalculationEngine {
     required bool cell6Running,
     required bool cell9Running,
     required bool cell10Running,
+    Map<int, double?> manualCellValues = const <int, double?>{},
   }) {
     final values = <int, double>{};
 
@@ -35,6 +36,20 @@ class LoadCalculationEngine {
       }
 
       values[cell] = value;
+    }
+
+    for (final cell in <int>[5, 6, 9, 10]) {
+      if (!manualCellValues.containsKey(cell)) {
+        continue;
+      }
+
+      final value = manualCellValues[cell] ?? 0;
+
+      if (!value.isFinite || value < 0) {
+        throw ArgumentError(
+          'قيمة الحمل اليدوي للخلية $cell غير صحيحة.',
+        );
+      }
     }
 
     final groupA =
@@ -81,6 +96,8 @@ class LoadCalculationEngine {
         total,
         cell9Running,
         cell10Running,
+        firstManual: manualCellValues[9],
+        secondManual: manualCellValues[10],
       );
 
       return LoadCalculationResult(
@@ -100,6 +117,8 @@ class LoadCalculationEngine {
         total,
         cell5Running,
         cell6Running,
+        firstManual: manualCellValues[5],
+        secondManual: manualCellValues[6],
       );
 
       return LoadCalculationResult(
@@ -118,12 +137,16 @@ class LoadCalculationEngine {
       groupA,
       cell5Running,
       cell6Running,
+      firstManual: manualCellValues[5],
+      secondManual: manualCellValues[6],
     );
 
     final second = _distribute(
       groupB,
       cell9Running,
       cell10Running,
+      firstManual: manualCellValues[9],
+      secondManual: manualCellValues[10],
     );
 
     return LoadCalculationResult(
@@ -141,32 +164,55 @@ class LoadCalculationEngine {
   static _PairValues _distribute(
       double load,
       bool firstRunning,
-      bool secondRunning,
-      ) {
-    if (firstRunning && secondRunning) {
-      return _PairValues(
-        first: load / 2,
-        second: load / 2,
-      );
-    }
-
-    if (firstRunning) {
-      return _PairValues(
-        first: load,
+      bool secondRunning, {
+      double? firstManual,
+      double? secondManual,
+      }) {
+    if (!firstRunning && !secondRunning) {
+      return const _PairValues(
+        first: 0,
         second: 0,
       );
     }
 
-    if (secondRunning) {
+    if (firstRunning && !secondRunning) {
       return _PairValues(
-        first: 0,
-        second: load,
+        first: firstManual ?? load,
+        second: 0,
       );
     }
 
-    return const _PairValues(
-      first: 0,
-      second: 0,
+    if (!firstRunning && secondRunning) {
+      return _PairValues(
+        first: 0,
+        second: secondManual ?? load,
+      );
+    }
+
+    if (firstManual != null && secondManual != null) {
+      return _PairValues(
+        first: firstManual,
+        second: secondManual,
+      );
+    }
+
+    if (firstManual != null) {
+      return _PairValues(
+        first: firstManual,
+        second: (load - firstManual).clamp(0, double.infinity).toDouble(),
+      );
+    }
+
+    if (secondManual != null) {
+      return _PairValues(
+        first: (load - secondManual).clamp(0, double.infinity).toDouble(),
+        second: secondManual,
+      );
+    }
+
+    return _PairValues(
+      first: load / 2,
+      second: load / 2,
     );
   }
 }

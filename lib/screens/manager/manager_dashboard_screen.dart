@@ -167,60 +167,6 @@ class _ManagerDashboardScreenState
     }).toList(growable: false);
   }
 
-  LoadRecord? _maximumRecord(
-      List<LoadRecord> records,
-      ) {
-    if (records.isEmpty) {
-      return null;
-    }
-
-    LoadRecord result = records.first;
-
-    for (final record in records.skip(1)) {
-      if (record.totalLoad >
-          result.totalLoad) {
-        result = record;
-      }
-    }
-
-    return result;
-  }
-
-  LoadRecord? _minimumRecord(
-      List<LoadRecord> records,
-      ) {
-    if (records.isEmpty) {
-      return null;
-    }
-
-    LoadRecord result = records.first;
-
-    for (final record in records.skip(1)) {
-      if (record.totalLoad <
-          result.totalLoad) {
-        result = record;
-      }
-    }
-
-    return result;
-  }
-
-  double _averageLoad(
-      List<LoadRecord> records,
-      ) {
-    if (records.isEmpty) {
-      return 0;
-    }
-
-    double total = 0;
-
-    for (final record in records) {
-      total += record.totalLoad;
-    }
-
-    return total / records.length;
-  }
-
   String _formatLastRecord(
       DateTime? date,
       ) {
@@ -272,16 +218,6 @@ class _ManagerDashboardScreenState
 
     final missingDistributors =
     _missingDistributors(distributors);
-
-    final maximumRecord =
-    _maximumRecord(records);
-
-    final minimumRecord =
-    _minimumRecord(records);
-
-    final averageLoad =
-    _averageLoad(records);
-
     final isLoading =
         distributorController.isLoading ||
             recordsController.isLoading;
@@ -373,15 +309,6 @@ class _ManagerDashboardScreenState
                       records.length,
                       missingCount:
                       missingDistributors.length,
-                    ),
-                    const SizedBox(height: 24),
-                    _buildLoadsSummary(
-                      maximumRecord:
-                      maximumRecord,
-                      minimumRecord:
-                      minimumRecord,
-                      averageLoad:
-                      averageLoad,
                     ),
                     const SizedBox(height: 24),
                     _buildActionsSection(),
@@ -508,95 +435,6 @@ class _ManagerDashboardScreenState
           ],
         );
       },
-    );
-  }
-
-  Widget _buildLoadsSummary({
-    required LoadRecord? maximumRecord,
-    required LoadRecord? minimumRecord,
-    required double averageLoad,
-  }) {
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'ملخص الأحمال',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final width =
-            constraints.maxWidth >= 850
-                ? (constraints.maxWidth -
-                24) /
-                3
-                : constraints.maxWidth >=
-                550
-                ? (constraints.maxWidth -
-                12) /
-                2
-                : constraints.maxWidth;
-
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: width,
-                  child: _LoadCard(
-                    title: 'أقصى حمل',
-                    value: maximumRecord ==
-                        null
-                        ? 'لا توجد بيانات'
-                        : '${maximumRecord.totalLoad.toStringAsFixed(2)} أمبير',
-                    subtitle:
-                    maximumRecord
-                        ?.distributorName ??
-                        '',
-                    icon:
-                    Icons.trending_up,
-                  ),
-                ),
-                SizedBox(
-                  width: width,
-                  child: _LoadCard(
-                    title: 'أقل حمل',
-                    value: minimumRecord ==
-                        null
-                        ? 'لا توجد بيانات'
-                        : '${minimumRecord.totalLoad.toStringAsFixed(2)} أمبير',
-                    subtitle:
-                    minimumRecord
-                        ?.distributorName ??
-                        '',
-                    icon:
-                    Icons.trending_down,
-                  ),
-                ),
-                SizedBox(
-                  width: width,
-                  child: _LoadCard(
-                    title:
-                    'متوسط الأحمال',
-                    value:
-                    '${averageLoad.toStringAsFixed(2)} أمبير',
-                    subtitle:
-                    'وفق السجلات الحالية',
-                    icon: Icons.show_chart,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ],
     );
   }
 
@@ -870,64 +708,6 @@ class _StatisticsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(title),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadCard extends StatelessWidget {
-  const _LoadCard({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              child: Icon(icon),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                children: [
-                  Text(title),
-                  const SizedBox(height: 5),
-                  Text(
-                    value,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(
-                      fontWeight:
-                      FontWeight.bold,
-                    ),
-                  ),
-                  if (subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow:
-                      TextOverflow.ellipsis,
-                    ),
                 ],
               ),
             ),

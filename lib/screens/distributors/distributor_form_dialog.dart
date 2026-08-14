@@ -23,6 +23,7 @@ class _DistributorFormDialogState
     extends State<DistributorFormDialog> {
   late final TextEditingController _codeController;
   late final TextEditingController _nameController;
+  late final TextEditingController _typeController;
 
   late bool _active;
   bool _isSaving = false;
@@ -40,6 +41,10 @@ class _DistributorFormDialogState
       text: widget.distributor?.name ?? '',
     );
 
+    _typeController = TextEditingController(
+      text: widget.distributor?.type ?? '',
+    );
+
     _active = widget.distributor?.active ?? true;
   }
 
@@ -47,6 +52,7 @@ class _DistributorFormDialogState
   void dispose() {
     _codeController.dispose();
     _nameController.dispose();
+    _typeController.dispose();
     super.dispose();
   }
 
@@ -55,6 +61,7 @@ class _DistributorFormDialogState
 
     final code = _codeController.text.trim();
     final name = _nameController.text.trim();
+    final type = _typeController.text.trim();
 
     if (code.isEmpty) {
       setState(() {
@@ -66,6 +73,13 @@ class _DistributorFormDialogState
     if (name.isEmpty) {
       setState(() {
         _errorMessage = 'اكتب اسم الموزع.';
+      });
+      return;
+    }
+
+    if (type.isEmpty) {
+      setState(() {
+        _errorMessage = 'اكتب نوع الموزع.';
       });
       return;
     }
@@ -84,12 +98,14 @@ class _DistributorFormDialogState
         id: widget.distributor!.id,
         code: code,
         name: name,
+        type: type,
         active: _active,
       );
     } else {
       success = await controller.create(
         code: code,
         name: name,
+        type: type,
       );
     }
 
@@ -142,6 +158,17 @@ class _DistributorFormDialogState
                   labelText: 'اسم الموزع',
                   hintText: 'مثال: موزع 26 يوليو',
                   prefixIcon: Icon(Icons.account_tree),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _typeController,
+                enabled: !_isSaving,
+                decoration: const InputDecoration(
+                  labelText: 'نوع الموزع',
+                  hintText: 'مثال: داخلي / خارجي / GIS',
+                  prefixIcon: Icon(Icons.category_outlined),
                   border: OutlineInputBorder(),
                 ),
               ),

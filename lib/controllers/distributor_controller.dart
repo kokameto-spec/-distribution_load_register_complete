@@ -70,6 +70,7 @@ class DistributorController extends ChangeNotifier {
   Future<bool> create({
     required String code,
     required String name,
+    required String type,
   }) async {
     _setLoading(true);
     _errorMessage = null;
@@ -78,6 +79,7 @@ class DistributorController extends ChangeNotifier {
       await _repository.create(
         code: code,
         name: name,
+        type: type,
       );
 
       return true;
@@ -99,6 +101,7 @@ class DistributorController extends ChangeNotifier {
     required String id,
     required String code,
     required String name,
+    required String type,
     required bool active,
   }) async {
     _setLoading(true);
@@ -109,6 +112,7 @@ class DistributorController extends ChangeNotifier {
         id: id,
         code: code,
         name: name,
+        type: type,
         active: active,
       );
 

@@ -12,6 +12,7 @@ class LoadRecord {
     required this.totalLoad,
     required this.cellValues,
     required this.cellRunningStates,
+    this.manualEntryStates = const <int, bool>{},
   });
 
   final String id;
@@ -25,6 +26,7 @@ class LoadRecord {
 
   final Map<int, double> cellValues;
   final Map<int, bool> cellRunningStates;
+  final Map<int, bool> manualEntryStates;
 
   factory LoadRecord.fromFirestore(
       DocumentSnapshot<Map<String, dynamic>> document,
@@ -43,6 +45,10 @@ class LoadRecord {
 
     final rawRunningStates = Map<String, dynamic>.from(
       data['cellRunningStates'] as Map? ?? <String, dynamic>{},
+    );
+
+    final rawManualEntryStates = Map<String, dynamic>.from(
+      data['manualEntryStates'] as Map? ?? <String, dynamic>{},
     );
 
     return LoadRecord(
@@ -67,6 +73,12 @@ class LoadRecord {
           value == true,
         ),
       ),
+      manualEntryStates: rawManualEntryStates.map(
+            (key, value) => MapEntry(
+          int.tryParse(key) ?? 0,
+          value == true,
+        ),
+      ),
     );
   }
 
@@ -83,6 +95,9 @@ class LoadRecord {
             (key, value) => MapEntry(key.toString(), value),
       ),
       'cellRunningStates': cellRunningStates.map(
+            (key, value) => MapEntry(key.toString(), value),
+      ),
+      'manualEntryStates': manualEntryStates.map(
             (key, value) => MapEntry(key.toString(), value),
       ),
     };

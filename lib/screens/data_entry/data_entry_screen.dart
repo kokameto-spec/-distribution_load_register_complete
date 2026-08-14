@@ -38,6 +38,16 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
   final Map<int, TextEditingController> _cellControllers =
   <int, TextEditingController>{};
 
+  final Map<int, TextEditingController> _manualCellControllers =
+  <int, TextEditingController>{};
+
+  final Map<int, bool> _manualEntryEnabled = <int, bool>{
+    5: false,
+    6: false,
+    9: false,
+    10: false,
+  };
+
   String? _selectedDistributorId;
 
   bool _cell5Running = true;
@@ -59,6 +69,12 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
       controller.addListener(_calculate);
 
       _cellControllers[cellNumber] = controller;
+    }
+
+    for (final cellNumber in _manualEntryEnabled.keys) {
+      final controller = TextEditingController();
+      controller.addListener(_calculate);
+      _manualCellControllers[cellNumber] = controller;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -96,6 +112,12 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
         ..dispose();
     }
 
+    for (final controller in _manualCellControllers.values) {
+      controller
+        ..removeListener(_calculate)
+        ..dispose();
+    }
+
     super.dispose();
   }
 
@@ -125,6 +147,32 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
     return values;
   }
 
+
+  Map<int, double?> _readManualCellValues() {
+    final values = <int, double?>{};
+
+    for (final cellNumber in _manualEntryEnabled.keys) {
+      if (_manualEntryEnabled[cellNumber] != true) {
+        continue;
+      }
+
+      final controller = _manualCellControllers[cellNumber];
+      final text = controller?.text.trim() ?? '';
+
+      if (text.isEmpty) {
+        values[cellNumber] = 0;
+        continue;
+      }
+
+      values[cellNumber] = double.tryParse(
+            text.replaceAll(',', '.'),
+          ) ??
+          double.nan;
+    }
+
+    return values;
+  }
+
   void _calculate() {
     try {
       final result = LoadCalculationEngine.calculate(
@@ -133,6 +181,7 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
         cell6Running: _cell6Running,
         cell9Running: _cell9Running,
         cell10Running: _cell10Running,
+        manualCellValues: _readManualCellValues(),
       );
 
       if (!mounted) {
@@ -308,6 +357,7 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
           9: _cell9Running,
           10: _cell10Running,
         },
+        manualEntryStates: Map<int, bool>.from(_manualEntryEnabled),
       );
 
       final success = await recordsController.saveRecord(
@@ -485,7 +535,7 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
                 const SizedBox(height: 6),
 
                 const Text(
-                  'ضع علامة داخل المربع إذا كانت الخلية في حالة تشغيل.',
+                  'ضع علامة تشغيل للخلية. ويمكن تفعيل «يدوي» لإدخال حمل خلية الدخول بنفسك.',
                 ),
 
                 const SizedBox(height: 12),
@@ -640,9 +690,20 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
               width: itemWidth,
               cellNumber: 5,
               value: _cell5Running,
+              manualEnabled: _manualEntryEnabled[5] ?? false,
+              manualController: _manualCellControllers[5]!,
+              onManualChanged: (value) {
+                setState(() {
+                  _manualEntryEnabled[5] = value;
+                });
+                _calculate();
+              },
               onChanged: (value) {
                 setState(() {
                   _cell5Running = value;
+                  if (!value) {
+                    _manualEntryEnabled[5] = false;
+                  }
                 });
 
                 _calculate();
@@ -652,9 +713,20 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
               width: itemWidth,
               cellNumber: 6,
               value: _cell6Running,
+              manualEnabled: _manualEntryEnabled[6] ?? false,
+              manualController: _manualCellControllers[6]!,
+              onManualChanged: (value) {
+                setState(() {
+                  _manualEntryEnabled[6] = value;
+                });
+                _calculate();
+              },
               onChanged: (value) {
                 setState(() {
                   _cell6Running = value;
+                  if (!value) {
+                    _manualEntryEnabled[6] = false;
+                  }
                 });
 
                 _calculate();
@@ -664,9 +736,20 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
               width: itemWidth,
               cellNumber: 9,
               value: _cell9Running,
+              manualEnabled: _manualEntryEnabled[9] ?? false,
+              manualController: _manualCellControllers[9]!,
+              onManualChanged: (value) {
+                setState(() {
+                  _manualEntryEnabled[9] = value;
+                });
+                _calculate();
+              },
               onChanged: (value) {
                 setState(() {
                   _cell9Running = value;
+                  if (!value) {
+                    _manualEntryEnabled[9] = false;
+                  }
                 });
 
                 _calculate();
@@ -676,9 +759,20 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
               width: itemWidth,
               cellNumber: 10,
               value: _cell10Running,
+              manualEnabled: _manualEntryEnabled[10] ?? false,
+              manualController: _manualCellControllers[10]!,
+              onManualChanged: (value) {
+                setState(() {
+                  _manualEntryEnabled[10] = value;
+                });
+                _calculate();
+              },
               onChanged: (value) {
                 setState(() {
                   _cell10Running = value;
+                  if (!value) {
+                    _manualEntryEnabled[10] = false;
+                  }
                 });
 
                 _calculate();
@@ -694,35 +788,79 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
     required double width,
     required int cellNumber,
     required bool value,
+    required bool manualEnabled,
+    required TextEditingController manualController,
+    required ValueChanged<bool> onManualChanged,
     required ValueChanged<bool> onChanged,
   }) {
     return SizedBox(
       width: width,
       child: Card(
-        child: CheckboxListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
             vertical: 6,
           ),
-          title: Text(
-            'خلية $cellNumber',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          subtitle: Text(
-            value ? 'تشغيل' : 'فصل',
-          ),
-          value: value,
-          onChanged: _isSaving
-              ? null
-              : (newValue) {
-            onChanged(newValue ?? false);
-          },
-          secondary: Icon(
-            value
-                ? Icons.power
-                : Icons.power_off,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'خلية $cellNumber',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  value ? 'تشغيل' : 'فصل',
+                ),
+                value: value,
+                onChanged: _isSaving
+                    ? null
+                    : (newValue) {
+                  onChanged(newValue ?? false);
+                },
+                secondary: Icon(
+                  value ? Icons.power : Icons.power_off,
+                ),
+              ),
+              const Divider(height: 8),
+              CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('إدخال يدوي'),
+                value: manualEnabled,
+                onChanged: (_isSaving || !value)
+                    ? null
+                    : (newValue) {
+                  onManualChanged(newValue ?? false);
+                },
+                secondary: const Icon(Icons.edit_outlined),
+              ),
+              if (manualEnabled && value) ...[
+                const SizedBox(height: 6),
+                TextField(
+                  controller: manualController,
+                  enabled: !_isSaving,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d*[\.,]?\d*$'),
+                    ),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'الحمل اليدوي',
+                    hintText: '0',
+                    suffixText: 'أمبير',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

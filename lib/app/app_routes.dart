@@ -6,6 +6,8 @@ import '../screens/login/login_screen.dart';
 import '../screens/manager/manager_dashboard_screen.dart';
 import '../screens/president/president_dashboard_screen.dart';
 import '../screens/reports/reports_screen.dart';
+import '../screens/stations/stations_screen.dart';
+import '../screens/stations/station_reports_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/users/users_screen.dart';
 
@@ -20,6 +22,8 @@ class AppRoutes {
   static const String distributors = '/distributors';
   static const String users = '/users';
   static const String reports = '/reports';
+  static const String stations = '/stations';
+  static const String stationReports = '/station-reports';
 
   static final Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),
@@ -30,5 +34,7 @@ class AppRoutes {
     distributors: (_) => const DistributorsScreen(),
     users: (_) => const UsersScreen(),
     reports: (_) => const ReportsScreen(),
+    stations: (_) => const StationsScreen(),
+    stationReports: (_) => const StationReportsScreen(),
   };
 }
