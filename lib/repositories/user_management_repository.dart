@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
+import '../core/services/firebase_rest_service.dart';
 import '../core/services/user_management_api.dart';
 
 class UserManagementRepository {
@@ -12,7 +14,24 @@ class UserManagementRepository {
   final UserManagementApi _api;
   final FirebaseAuth _auth;
 
+  bool get _windows {
+    return !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.windows;
+  }
+
   Future<String> _token() async {
+    if (_windows) {
+      final token = FirebaseRestService.token;
+
+      if (token == null || token.trim().isEmpty) {
+        throw Exception(
+          'انتهت جلسة تسجيل الدخول. سجل الدخول مرة أخرى.',
+        );
+      }
+
+      return token;
+    }
+
     final user = _auth.currentUser;
 
     if (user == null) {
@@ -40,10 +59,8 @@ class UserManagementRepository {
     required String distributorId,
     required String distributorName,
   }) async {
-    final token = await _token();
-
     await _api.createUser(
-      token: token,
+      token: await _token(),
       code: code,
       name: name,
       password: password,
@@ -62,10 +79,8 @@ class UserManagementRepository {
     required String distributorId,
     required String distributorName,
   }) async {
-    final token = await _token();
-
     await _api.updateUser(
-      token: token,
+      token: await _token(),
       uid: uid,
       code: code,
       name: name,
@@ -80,22 +95,16 @@ class UserManagementRepository {
     required String uid,
     required String password,
   }) async {
-    final token = await _token();
-
     await _api.changePassword(
-      token: token,
+      token: await _token(),
       uid: uid,
       password: password,
     );
   }
 
-  Future<void> deleteUser(
-      String uid,
-      ) async {
-    final token = await _token();
-
+  Future<void> deleteUser(String uid) async {
     await _api.deleteUser(
-      token: token,
+      token: await _token(),
       uid: uid,
     );
   }
@@ -104,10 +113,8 @@ class UserManagementRepository {
     required String uid,
     required bool active,
   }) async {
-    final token = await _token();
-
     await _api.setActive(
-      token: token,
+      token: await _token(),
       uid: uid,
       active: active,
     );
