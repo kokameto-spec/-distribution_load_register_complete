@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -16,9 +17,16 @@ import 'firebase_options.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  final isWindows = !kIsWeb &&
+      defaultTargetPlatform ==
+          TargetPlatform.windows;
+
+  if (!isWindows) {
+    await Firebase.initializeApp(
+      options:
+          DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   await initializeDateFormatting('ar');
 
@@ -28,26 +36,39 @@ Future<void> main() async {
         ChangeNotifierProvider<AuthController>(
           create: (_) => AuthController(),
         ),
-        ChangeNotifierProvider<DistributorController>(
-          create: (_) => DistributorController(),
+        ChangeNotifierProvider<
+            DistributorController>(
+          create: (_) =>
+              DistributorController(),
         ),
-        ChangeNotifierProvider<LoadRecordsController>(
-          create: (_) => LoadRecordsController(),
+        ChangeNotifierProvider<
+            LoadRecordsController>(
+          create: (_) =>
+              LoadRecordsController(),
         ),
-        ChangeNotifierProvider<StationController>(
-          create: (_) => StationController(),
+        ChangeNotifierProvider<
+            StationController>(
+          create: (_) =>
+              StationController(),
         ),
-        ChangeNotifierProvider<StationReportController>(
-          create: (_) => StationReportController(),
+        ChangeNotifierProvider<
+            StationReportController>(
+          create: (_) =>
+              StationReportController(),
         ),
-        ChangeNotifierProvider<UserManagementController>(
-          create: (_) => UserManagementController(),
+        ChangeNotifierProvider<
+            UserManagementController>(
+          create: (_) =>
+              UserManagementController(),
         ),
-        ChangeNotifierProvider<AuditLogController>(
-          create: (_) => AuditLogController(),
+        ChangeNotifierProvider<
+            AuditLogController>(
+          create: (_) =>
+              AuditLogController(),
         ),
       ],
-      child: const DistributionLoadRegisterApp(),
+      child:
+          const DistributionLoadRegisterApp(),
     ),
   );
 }
