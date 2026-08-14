@@ -9,6 +9,9 @@ class LoadRecordRepository {
 
   final FirebaseFirestore _firestore;
 
+  static const int _homeLimit = 300;
+  static const int _searchLimit = 1000;
+
   CollectionReference<Map<String, dynamic>> get _records {
     return _firestore.collection('load_records');
   }
@@ -20,25 +23,27 @@ class LoadRecordRepository {
   Stream<List<LoadRecord>> watchAll() {
     return _records
         .orderBy(
-      'recordedAt',
-      descending: true,
-    )
+          'recordedAt',
+          descending: true,
+        )
+        .limit(_homeLimit)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-          .map(LoadRecord.fromFirestore)
-          .toList(growable: false),
-    );
+              .map(LoadRecord.fromFirestore)
+              .toList(growable: false),
+        );
   }
 
   Stream<List<LoadRecord>> watchForDistributor(
-      String distributorId,
-      ) {
+    String distributorId,
+  ) {
     return _records
         .where(
-      'distributorId',
-      isEqualTo: distributorId.trim(),
-    )
+          'distributorId',
+          isEqualTo: distributorId.trim(),
+        )
+        .limit(_homeLimit)
         .snapshots()
         .map((snapshot) {
       final records = snapshot.docs
@@ -46,7 +51,7 @@ class LoadRecordRepository {
           .toList();
 
       records.sort(
-            (first, second) =>
+        (first, second) =>
             second.recordedAt.compareTo(first.recordedAt),
       );
 
@@ -54,11 +59,9 @@ class LoadRecordRepository {
     });
   }
 
-  /// نقرأ آخر وقت تسجيل من مستند الموزع نفسه.
-  /// بهذا لا نحتاج إلى Firestore Composite Index.
   Future<DateTime?> getLastRecordTime(
-      String distributorId,
-      ) async {
+    String distributorId,
+  ) async {
     final normalizedId = distributorId.trim();
 
     if (normalizedId.isEmpty) {
@@ -99,8 +102,8 @@ class LoadRecordRepository {
   }
 
   Future<Duration?> remainingUntilNextRecord(
-      String distributorId,
-      ) async {
+    String distributorId,
+  ) async {
     final lastRecordTime = await getLastRecordTime(
       distributorId,
     );
@@ -163,13 +166,13 @@ class LoadRecordRepository {
         'createdByCode': record.createdByCode,
         'totalLoad': record.totalLoad,
         'cellValues': record.cellValues.map(
-              (key, value) => MapEntry(
+          (key, value) => MapEntry(
             key.toString(),
             value,
           ),
         ),
         'cellRunningStates': record.cellRunningStates.map(
-              (key, value) => MapEntry(
+          (key, value) => MapEntry(
             key.toString(),
             value,
           ),
@@ -226,6 +229,8 @@ class LoadRecordRepository {
       );
     }
 
+    query = query.limit(_searchLimit);
+
     final snapshot = await query.get();
 
     final records = snapshot.docs
@@ -233,7 +238,7 @@ class LoadRecordRepository {
         .toList();
 
     records.sort(
-          (first, second) =>
+      (first, second) =>
           second.recordedAt.compareTo(first.recordedAt),
     );
 
