@@ -1,0 +1,67 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter Doctor
+        shell: powershell
+        run: flutter doctor -v
+
+      - name: Enable Windows desktop
+        shell: powershell
+        run: flutter config --enable-windows-desktop
+
+      - name: Create Windows platform if missing
+        shell: powershell
+        run: |
+          if (-not (Test-Path "windows")) {
+            flutter create --platforms=windows .
+          }
+
+      - name: Get dependencies
+        shell: powershell
+        run: flutter pub get
+
+      - name: Build Windows Release
+        shell: powershell
+        run: flutter build windows --release --verbose
+
+      - name: Create Windows ZIP
+        shell: powershell
+        run: |
+          $release = Get-ChildItem -Path "build\windows" -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq "Release" } |
+            Select-Object -First 1
+
+          if (-not $release) {
+            Write-Error "Windows Release folder not found"
+            exit 1
+          }
+
+          Compress-Archive `
+            -Path "$($release.FullName)\*" `
+            -DestinationPath "Distribution_Load_Register_Windows.zip" `
+            -Force
+
+      - name: Upload Windows Program
+        uses: actions/upload-artifact@v4
+        with:
+          name: Distribution-Load-Register-Windows
+          path: Distribution_Load_Register_Windows.zip
+          retention-days: 30
+          if-no-files-found: error
