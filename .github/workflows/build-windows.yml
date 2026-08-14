@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repository
@@ -47,32 +47,12 @@ jobs:
             exit 1
           }
 
-          Write-Host "EXE found successfully:"
-          Write-Host "$release\distribution_load_register_final.exe"
-
-      - name: Create Windows ZIP
-        shell: powershell
-        run: |
-          $release = "build\windows\x64\runner\Release"
-          $zip = "$env:GITHUB_WORKSPACE\Distribution_Load_Register_Windows.zip"
-
-          Compress-Archive `
-            -Path "$release\*" `
-            -DestinationPath $zip `
-            -Force
-
-          if (-not (Test-Path $zip)) {
-            Write-Error "ZIP creation failed"
-            exit 1
-          }
-
-          Write-Host "ZIP created successfully:"
-          Write-Host $zip
+          Write-Host "EXE found successfully"
 
       - name: Upload Windows Program
         uses: actions/upload-artifact@v4
         with:
-          name: Distribution-Load-Register-Windows
-          path: ${{ github.workspace }}/Distribution_Load_Register_Windows.zip
+          name: Distribution-Load-Register-Windows-x64-Compatible
+          path: build/windows/x64/runner/Release/
           retention-days: 30
           if-no-files-found: error
