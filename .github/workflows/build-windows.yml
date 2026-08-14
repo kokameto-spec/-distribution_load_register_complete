@@ -39,7 +39,9 @@ jobs:
 
       - name: Build Windows Release
         shell: powershell
-        run: flutter build windows --release --verbose
+        run: |
+          $env:CMAKE_POLICY_VERSION_MINIMUM="3.5"
+          flutter build windows --release --verbose
 
       - name: Create Windows ZIP
         shell: powershell
@@ -52,6 +54,9 @@ jobs:
             Write-Error "Windows Release folder not found"
             exit 1
           }
+
+          Write-Host "Release folder found:"
+          Write-Host $release.FullName
 
           Compress-Archive `
             -Path "$($release.FullName)\*" `
