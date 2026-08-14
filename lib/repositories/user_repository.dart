@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
+import '../core/services/firebase_rest_service.dart';
 import '../models/app_user.dart';
 
 class UserRepository {
@@ -13,6 +15,11 @@ class UserRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
+  bool get _useRestOnWindows {
+    return !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.windows;
+  }
+
   Future<AppUser?> login({
     required String code,
     required String password,
@@ -23,9 +30,77 @@ class UserRepository {
       return null;
     }
 
-    final email = '$normalizedCode@distribution.local';
+    if (_useRestOnWindows) {
+      return _loginWindowsRest(
+        code: normalizedCode,
+        password: password,
+      );
+    }
 
-    final credential = await _auth.signInWithEmailAndPassword(
+    return _loginFirebase(
+      code: normalizedCode,
+      password: password,
+    );
+  }
+
+  Future<AppUser?> _loginWindowsRest({
+    required String code,
+    required String password,
+  }) async {
+    final email = '$code@distribution.local';
+
+    final session = await FirebaseRestService.signIn(
+      email: email,
+      password: password,
+    );
+
+    if (session == null) {
+      return null;
+    }
+
+    final document =
+        await FirebaseRestService.getDocument(
+      collection: 'users',
+      documentId: session.localId,
+    );
+
+    if (document == null) {
+      FirebaseRestService.signOut();
+      return null;
+    }
+
+    final rawFields = document['fields'];
+
+    if (rawFields is! Map<String, dynamic>) {
+      FirebaseRestService.signOut();
+      return null;
+    }
+
+    final data =
+        FirebaseRestService.decodeFields(rawFields);
+
+    final appUser = AppUser.fromMap(
+      uid: session.localId,
+      data: data,
+    );
+
+    if (!appUser.active ||
+        appUser.code != code) {
+      FirebaseRestService.signOut();
+      return null;
+    }
+
+    return appUser;
+  }
+
+  Future<AppUser?> _loginFirebase({
+    required String code,
+    required String password,
+  }) async {
+    final email = '$code@distribution.local';
+
+    final credential =
+        await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
@@ -37,8 +112,10 @@ class UserRepository {
       return null;
     }
 
-    final document =
-    await _firestore.collection('users').doc(firebaseUser.uid).get();
+    final document = await _firestore
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .get();
 
     final data = document.data();
 
@@ -52,7 +129,8 @@ class UserRepository {
       data: data,
     );
 
-    if (!appUser.active || appUser.code != normalizedCode) {
+    if (!appUser.active ||
+        appUser.code != code) {
       await _auth.signOut();
       return null;
     }
@@ -61,14 +139,20 @@ class UserRepository {
   }
 
   Future<AppUser?> restoreSession() async {
+    if (_useRestOnWindows) {
+      return null;
+    }
+
     final firebaseUser = _auth.currentUser;
 
     if (firebaseUser == null) {
       return null;
     }
 
-    final document =
-    await _firestore.collection('users').doc(firebaseUser.uid).get();
+    final document = await _firestore
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .get();
 
     final data = document.data();
 
@@ -91,6 +175,11 @@ class UserRepository {
   }
 
   Future<void> logout() async {
+    if (_useRestOnWindows) {
+      FirebaseRestService.signOut();
+      return;
+    }
+
     await _auth.signOut();
   }
 }
