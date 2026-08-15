@@ -10,6 +10,9 @@ class UserManagementRepository {
     FirebaseAuth? auth,
   }) : _api =
             api ?? UserManagementApi() {
+    /*
+     * Windows لا ينشئ FirebaseAuth Native.
+     */
     if (!_windows) {
       _auth =
           auth ?? FirebaseAuth.instance;
@@ -20,28 +23,40 @@ class UserManagementRepository {
 
   FirebaseAuth? _auth;
 
+  // =========================================================
+  // PLATFORM
+  // =========================================================
+
   bool get _windows {
     return !kIsWeb &&
         defaultTargetPlatform ==
             TargetPlatform.windows;
   }
 
-  Future<String> _token() async {
+  // =========================================================
+  // TOKEN
+  // =========================================================
+
+  Future<String> _token({
+    bool forceRefresh = false,
+  }) async {
     if (_windows) {
-      final token =
-          FirebaseRestService.token;
-
-      if (token == null ||
-          token.trim().isEmpty) {
-        throw Exception(
-          'انتهت جلسة تسجيل الدخول. سجل الدخول مرة أخرى.',
-        );
-      }
-
-      return token;
+      /*
+       * لا نستخدم FirebaseRestService.token
+       * مباشرة بعد الآن.
+       *
+       * الدالة دي تتأكد إن التوكن صالح
+       * وتجدد الجلسة عند الحاجة.
+       */
+      return FirebaseRestService
+          .getValidIdToken(
+        forceRefresh:
+            forceRefresh,
+      );
     }
 
-    final auth = _auth;
+    final auth =
+        _auth;
 
     if (auth == null) {
       throw Exception(
@@ -54,13 +69,14 @@ class UserManagementRepository {
 
     if (user == null) {
       throw Exception(
-        'انتهت جلسة تسجيل الدخول. سجل الدخول مرة أخرى.',
+        'انتهت جلسة تسجيل الدخول. '
+        'سجل الدخول مرة أخرى.',
       );
     }
 
     final token =
         await user.getIdToken(
-      true,
+      forceRefresh,
     );
 
     if (token == null ||
@@ -73,6 +89,53 @@ class UserManagementRepository {
     return token;
   }
 
+  // =========================================================
+  // EXECUTE WITH TOKEN RETRY
+  // =========================================================
+
+  Future<void> _execute(
+    Future<void> Function(
+      String token,
+    ) action,
+  ) async {
+    var token =
+        await _token();
+
+    try {
+      await action(
+        token,
+      );
+    } on UserManagementApiException
+        catch (error) {
+      /*
+       * لو Supabase Function قالت إن
+       * Firebase Token انتهى:
+       *
+       * نجدد التوكن ثم نكرر العملية مرة واحدة.
+       */
+      if (_windows &&
+          error.statusCode == 401) {
+        token =
+            await _token(
+          forceRefresh:
+              true,
+        );
+
+        await action(
+          token,
+        );
+
+        return;
+      }
+
+      rethrow;
+    }
+  }
+
+  // =========================================================
+  // CREATE USER
+  // =========================================================
+
   Future<void> createUser({
     required String code,
     required String name,
@@ -81,23 +144,31 @@ class UserManagementRepository {
     required String distributorId,
     required String distributorName,
   }) async {
-    await _api.createUser(
-      token:
-          await _token(),
-      code:
-          code,
-      name:
-          name,
-      password:
-          password,
-      role:
-          role,
-      distributorId:
-          distributorId,
-      distributorName:
-          distributorName,
+    await _execute(
+      (token) {
+        return _api.createUser(
+          token:
+              token,
+          code:
+              code,
+          name:
+              name,
+          password:
+              password,
+          role:
+              role,
+          distributorId:
+              distributorId,
+          distributorName:
+              distributorName,
+        );
+      },
     );
   }
+
+  // =========================================================
+  // UPDATE USER
+  // =========================================================
 
   Future<void> updateUser({
     required String uid,
@@ -108,64 +179,96 @@ class UserManagementRepository {
     required String distributorId,
     required String distributorName,
   }) async {
-    await _api.updateUser(
-      token:
-          await _token(),
-      uid:
-          uid,
-      code:
-          code,
-      name:
-          name,
-      role:
-          role,
-      active:
-          active,
-      distributorId:
-          distributorId,
-      distributorName:
-          distributorName,
+    await _execute(
+      (token) {
+        return _api.updateUser(
+          token:
+              token,
+          uid:
+              uid,
+          code:
+              code,
+          name:
+              name,
+          role:
+              role,
+          active:
+              active,
+          distributorId:
+              distributorId,
+          distributorName:
+              distributorName,
+        );
+      },
     );
   }
+
+  // =========================================================
+  // CHANGE PASSWORD
+  // =========================================================
 
   Future<void> changePassword({
     required String uid,
     required String password,
   }) async {
-    await _api.changePassword(
-      token:
-          await _token(),
-      uid:
-          uid,
-      password:
-          password,
+    await _execute(
+      (token) {
+        return _api.changePassword(
+          token:
+              token,
+          uid:
+              uid,
+          password:
+              password,
+        );
+      },
     );
   }
+
+  // =========================================================
+  // DELETE USER
+  // =========================================================
 
   Future<void> deleteUser(
     String uid,
   ) async {
-    await _api.deleteUser(
-      token:
-          await _token(),
-      uid:
-          uid,
+    await _execute(
+      (token) {
+        return _api.deleteUser(
+          token:
+              token,
+          uid:
+              uid,
+        );
+      },
     );
   }
+
+  // =========================================================
+  // ACTIVE / INACTIVE
+  // =========================================================
 
   Future<void> setActive({
     required String uid,
     required bool active,
   }) async {
-    await _api.setActive(
-      token:
-          await _token(),
-      uid:
-          uid,
-      active:
-          active,
+    await _execute(
+      (token) {
+        return _api.setActive(
+          token:
+              token,
+          uid:
+              uid,
+          active:
+              active,
+        );
+      },
     );
   }
+
+  // =========================================================
+  // DISPOSE
+  // =========================================================
 
   void dispose() {
     _api.dispose();
