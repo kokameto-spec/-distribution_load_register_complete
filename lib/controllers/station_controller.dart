@@ -14,38 +14,31 @@ class StationController extends ChangeNotifier {
 
   final StationRepository _repository;
 
-  StreamSubscription<List<Station>>?
-      _subscription;
+  StreamSubscription<List<Station>>? _subscription;
 
-  List<Station> _stations =
-      <Station>[];
+  List<Station> _stations = <Station>[];
 
   bool _isLoading = false;
   bool _isListening = false;
 
   String? _errorMessage;
 
-  // =========================================================
-  // GETTERS
-  // =========================================================
+  List<Station> get stations =>
+      List<Station>.unmodifiable(_stations);
 
-  List<Station> get stations {
-    return List<Station>.unmodifiable(
-      _stations,
-    );
-  }
+  List<Station> get activeStations =>
+      _stations
+          .where((station) => station.active)
+          .toList(growable: false);
 
-  bool get isLoading =>
-      _isLoading;
+  bool get isLoading => _isLoading;
 
-  bool get isListening =>
-      _isListening;
+  bool get isListening => _isListening;
 
-  String? get errorMessage =>
-      _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   // =========================================================
-  // START LISTENING
+  // START
   // =========================================================
 
   Future<void> startListening() async {
@@ -54,7 +47,6 @@ class StationController extends ChangeNotifier {
     }
 
     await _subscription?.cancel();
-
     _subscription = null;
 
     _isListening = true;
@@ -63,60 +55,45 @@ class StationController extends ChangeNotifier {
 
     notifyListeners();
 
-    final firstValue =
-        Completer<void>();
+    final completer = Completer<void>();
 
     _subscription =
-        _repository
-            .watchAll()
-            .listen(
+        _repository.watchAll().listen(
       (items) {
         _stations = items;
-
         _isLoading = false;
-        _isListening = true;
         _errorMessage = null;
 
         notifyListeners();
 
-        if (!firstValue.isCompleted) {
-          firstValue.complete();
+        if (!completer.isCompleted) {
+          completer.complete();
         }
       },
       onError: (Object error) {
         _isLoading = false;
-
-        _errorMessage =
-            _errorText(
-          error,
-        );
+        _errorMessage = _errorText(error);
 
         notifyListeners();
 
-        if (!firstValue.isCompleted) {
-          firstValue.complete();
+        if (!completer.isCompleted) {
+          completer.complete();
         }
       },
       onDone: () {
         _isListening = false;
 
-        notifyListeners();
-
-        if (!firstValue.isCompleted) {
-          firstValue.complete();
+        if (!completer.isCompleted) {
+          completer.complete();
         }
+
+        notifyListeners();
       },
     );
 
-    /*
-     * startListening لن يعلق للأبد
-     * إذا الإنترنت بطيء أو الخدمة لا ترد.
-     */
     try {
-      await firstValue.future.timeout(
-        const Duration(
-          seconds: 25,
-        ),
+      await completer.future.timeout(
+        const Duration(seconds: 25),
       );
     } on TimeoutException {
       _isLoading = false;
@@ -135,7 +112,6 @@ class StationController extends ChangeNotifier {
 
   Future<void> refresh() async {
     await stopListening();
-
     await startListening();
   }
 
@@ -145,19 +121,20 @@ class StationController extends ChangeNotifier {
 
   Future<bool> createStation({
     required String name,
-    required List<StationTransformer>
-        transformers,
+    required List<StationTransformer> transformers,
   }) async {
-    return _run(
-      () async {
-        await _repository.create(
-          name:
-              name,
-          transformers:
-              transformers,
-        );
-      },
+    final success = await _run(
+      () => _repository.create(
+        name: name,
+        transformers: transformers,
+      ),
     );
+
+    if (success) {
+      await refresh();
+    }
+
+    return success;
   }
 
   // =========================================================
@@ -168,23 +145,22 @@ class StationController extends ChangeNotifier {
     required Station station,
     required String name,
     required bool active,
-    required List<StationTransformer>
-        transformers,
+    required List<StationTransformer> transformers,
   }) async {
-    return _run(
-      () async {
-        await _repository.update(
-          id:
-              station.id,
-          name:
-              name,
-          active:
-              active,
-          transformers:
-              transformers,
-        );
-      },
+    final success = await _run(
+      () => _repository.update(
+        id: station.id,
+        name: name,
+        active: active,
+        transformers: transformers,
+      ),
     );
+
+    if (success) {
+      await refresh();
+    }
+
+    return success;
   }
 
   // =========================================================
@@ -194,22 +170,23 @@ class StationController extends ChangeNotifier {
   Future<bool> deleteStation(
     String id,
   ) async {
-    return _run(
-      () async {
-        await _repository.delete(
-          id,
-        );
-      },
+    final success = await _run(
+      () => _repository.delete(id),
     );
+
+    if (success) {
+      await refresh();
+    }
+
+    return success;
   }
 
   // =========================================================
-  // RUN OPERATION
+  // OPERATION
   // =========================================================
 
   Future<bool> _run(
-    Future<void> Function()
-        operation,
+    Future<dynamic> Function() operation,
   ) async {
     if (_isLoading) {
       return false;
@@ -222,17 +199,8 @@ class StationController extends ChangeNotifier {
 
     try {
       await operation().timeout(
-        const Duration(
-          seconds: 30,
-        ),
+        const Duration(seconds: 30),
       );
-
-      /*
-       * على Windows الـstream يعمل Polling،
-       * ولذلك نعيد تحميل القائمة فورًا
-       * بدل انتظار دورة التحديث التالية.
-       */
-      await refresh();
 
       return true;
     } on TimeoutException {
@@ -243,9 +211,8 @@ class StationController extends ChangeNotifier {
       return false;
     } on ArgumentError catch (error) {
       _errorMessage =
-          error.message
-                  ?.toString() ??
-              'بيانات المحطة غير صحيحة.';
+          error.message?.toString() ??
+          'بيانات المحطة غير صحيحة.';
 
       return false;
     } on StateError catch (error) {
@@ -255,9 +222,7 @@ class StationController extends ChangeNotifier {
       return false;
     } on FirebaseException catch (error) {
       _errorMessage =
-          _firebaseError(
-        error,
-      );
+          _firebaseError(error);
 
       return false;
     } catch (error) {
@@ -279,33 +244,16 @@ class StationController extends ChangeNotifier {
   Station? findById(
     String id,
   ) {
-    final normalizedId =
+    final normalized =
         id.trim();
 
-    for (final station
-        in _stations) {
-      if (station.id ==
-          normalizedId) {
+    for (final station in _stations) {
+      if (station.id == normalized) {
         return station;
       }
     }
 
     return null;
-  }
-
-  // =========================================================
-  // ACTIVE STATIONS
-  // =========================================================
-
-  List<Station> get activeStations {
-    return _stations
-        .where(
-          (station) =>
-              station.active,
-        )
-        .toList(
-          growable: false,
-        );
   }
 
   // =========================================================
@@ -316,7 +264,6 @@ class StationController extends ChangeNotifier {
     await _subscription?.cancel();
 
     _subscription = null;
-
     _isListening = false;
     _isLoading = false;
 
@@ -324,7 +271,7 @@ class StationController extends ChangeNotifier {
   }
 
   // =========================================================
-  // CLEAR ERROR
+  // ERROR
   // =========================================================
 
   void clearError() {
@@ -333,51 +280,33 @@ class StationController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // =========================================================
-  // ERROR TEXT
-  // =========================================================
-
   String _errorText(
     Object error,
   ) {
     if (error is FirebaseException) {
-      return _firebaseError(
-        error,
-      );
+      return _firebaseError(error);
     }
 
     final text =
         error.toString().trim();
 
-    if (text.startsWith(
-      'Bad state:',
-    )) {
+    if (text.startsWith('Bad state:')) {
       return text
-          .substring(
-            'Bad state:'.length,
-          )
+          .substring('Bad state:'.length)
           .trim();
     }
 
-    if (text.startsWith(
-      'Exception:',
-    )) {
+    if (text.startsWith('Exception:')) {
       return text
-          .substring(
-            'Exception:'.length,
-          )
+          .substring('Exception:'.length)
           .trim();
     }
 
-    if (text.contains(
-      'PERMISSION_DENIED',
-    )) {
+    if (text.contains('PERMISSION_DENIED')) {
       return 'لا توجد صلاحية لقراءة بيانات المحطات.';
     }
 
-    if (text.contains(
-      'UNAUTHENTICATED',
-    )) {
+    if (text.contains('UNAUTHENTICATED')) {
       return 'انتهت جلسة تسجيل الدخول. '
           'سجل الدخول مرة أخرى.';
     }
@@ -407,10 +336,6 @@ class StationController extends ChangeNotifier {
             'حدث خطأ في قاعدة البيانات.';
     }
   }
-
-  // =========================================================
-  // DISPOSE
-  // =========================================================
 
   @override
   void dispose() {
