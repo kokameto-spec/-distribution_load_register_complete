@@ -2,7 +2,7 @@ name: distribution_load_register_final
 description: سجل أحمال الموزعات - النسخة السحابية
 publish_to: 'none'
 
-version: 1.4.0+4
+version: 3.6.0+6
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
