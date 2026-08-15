@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -33,13 +36,13 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
   ];
 
   final TextEditingController _operatorNameController =
-  TextEditingController();
+      TextEditingController();
 
   final Map<int, TextEditingController> _cellControllers =
-  <int, TextEditingController>{};
+      <int, TextEditingController>{};
 
   final Map<int, TextEditingController> _manualCellControllers =
-  <int, TextEditingController>{};
+      <int, TextEditingController>{};
 
   final Map<int, bool> _manualEntryEnabled = <int, bool>{
     5: false,
@@ -84,7 +87,7 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
 
       final authController = context.read<AuthController>();
       final distributorController =
-      context.read<DistributorController>();
+          context.read<DistributorController>();
 
       if (!distributorController.isListening) {
         distributorController.startListening();
@@ -147,7 +150,6 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
     return values;
   }
 
-
   Map<int, double?> _readManualCellValues() {
     final values = <int, double?>{};
 
@@ -164,7 +166,8 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
         continue;
       }
 
-      values[cellNumber] = double.tryParse(
+      values[cellNumber] =
+          double.tryParse(
             text.replaceAll(',', '.'),
           ) ??
           double.nan;
@@ -214,44 +217,57 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
   }
 
   Distributor? _selectedDistributor(
-      DistributorController controller,
-      ) {
+    DistributorController controller,
+  ) {
     final distributorId = _selectedDistributorId;
 
-    if (distributorId == null || distributorId.trim().isEmpty) {
+    if (distributorId == null ||
+        distributorId.trim().isEmpty) {
       return null;
     }
 
-    return controller.findById(distributorId);
+    return controller.findById(
+      distributorId,
+    );
   }
 
   Future<void> _saveAndExit() async {
-    FocusScope.of(context).unfocus();
+    FocusScope.of(
+      context,
+    ).unfocus();
 
-    final authController = context.read<AuthController>();
+    final authController =
+        context.read<AuthController>();
+
     final distributorController =
-    context.read<DistributorController>();
+        context.read<DistributorController>();
+
     final recordsController =
-    context.read<LoadRecordsController>();
+        context.read<LoadRecordsController>();
 
-    final currentUser = authController.currentUser;
+    final currentUser =
+        authController.currentUser;
 
-    final distributor = _selectedDistributor(
+    final distributor =
+        _selectedDistributor(
       distributorController,
     );
 
-    final operatorName = _operatorNameController.text.trim();
+    final operatorName =
+        _operatorNameController.text.trim();
 
     if (currentUser == null) {
       setState(() {
-        _errorMessage = 'جلسة المستخدم غير متاحة.';
+        _errorMessage =
+            'جلسة المستخدم غير متاحة.';
       });
       return;
     }
 
     if (distributor == null) {
       setState(() {
-        _errorMessage = 'اختر الموزع أولًا.';
+        _errorMessage =
+            'اختر الموزع أولًا.';
       });
       return;
     }
@@ -259,26 +275,29 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
     if (!distributor.active) {
       setState(() {
         _errorMessage =
-        'هذا الموزع موقوف ولا يمكن تسجيل أحماله.';
+            'هذا الموزع موقوف ولا يمكن تسجيل أحماله.';
       });
       return;
     }
 
     if (operatorName.isEmpty) {
       setState(() {
-        _errorMessage = 'اكتب اسم مدخل البيانات.';
+        _errorMessage =
+            'اكتب اسم مدخل البيانات.';
       });
       return;
     }
 
     _calculate();
 
-    final calculationResult = _calculationResult;
+    final calculationResult =
+        _calculationResult;
 
     if (calculationResult == null ||
         !calculationResult.isValid) {
       setState(() {
-        _errorMessage = calculationResult?.errorMessage ??
+        _errorMessage =
+            calculationResult?.errorMessage ??
             'بيانات الأحمال غير صحيحة.';
       });
       return;
@@ -291,7 +310,8 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
 
     try {
       final remainingDuration =
-      await recordsController.getRemainingTime(
+          await recordsController
+              .getRemainingTime(
         distributor.id,
       );
 
@@ -300,31 +320,40 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
       }
 
       if (remainingDuration != null) {
-        final totalSeconds = remainingDuration.inSeconds;
+        final totalSeconds =
+            remainingDuration.inSeconds;
 
-        final hours = totalSeconds ~/ 3600;
-        final minutes = (totalSeconds % 3600) ~/ 60;
-        final seconds = totalSeconds % 60;
+        final hours =
+            totalSeconds ~/ 3600;
 
-        final remainingText = hours > 0
-            ? '$hours ساعة و$minutes دقيقة'
-            : minutes > 0
-            ? '$minutes دقيقة و$seconds ثانية'
-            : '$seconds ثانية';
+        final minutes =
+            (totalSeconds % 3600) ~/ 60;
+
+        final seconds =
+            totalSeconds % 60;
+
+        final remainingText =
+            hours > 0
+                ? '$hours ساعة و$minutes دقيقة'
+                : minutes > 0
+                ? '$minutes دقيقة و$seconds ثانية'
+                : '$seconds ثانية';
 
         setState(() {
           _isSaving = false;
           _errorMessage =
-          'تم تسجيل أحمال هذا الموزع بالفعل. '
+              'تم تسجيل أحمال هذا الموزع بالفعل. '
               'يمكن التسجيل مرة أخرى بعد $remainingText.';
         });
 
         return;
       }
 
-      final inputValues = _readInputValues();
+      final inputValues =
+          _readInputValues();
 
-      final allCellValues = <int, double>{
+      final allCellValues =
+          <int, double>{
         0: inputValues[0] ?? 0,
         1: inputValues[1] ?? 0,
         2: inputValues[2] ?? 0,
@@ -341,26 +370,41 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
         15: inputValues[15] ?? 0,
       };
 
-      final record = LoadRecord(
+      final record =
+          LoadRecord(
         id: '',
-        distributorId: distributor.id,
-        distributorName: distributor.name,
-        operatorName: operatorName,
-        createdByUid: currentUser.uid,
-        createdByCode: currentUser.code,
-        recordedAt: DateTime.now(),
-        totalLoad: calculationResult.totalInputLoad,
-        cellValues: allCellValues,
-        cellRunningStates: <int, bool>{
+        distributorId:
+            distributor.id,
+        distributorName:
+            distributor.name,
+        operatorName:
+            operatorName,
+        createdByUid:
+            currentUser.uid,
+        createdByCode:
+            currentUser.code,
+        recordedAt:
+            DateTime.now(),
+        totalLoad:
+            calculationResult.totalInputLoad,
+        cellValues:
+            allCellValues,
+        cellRunningStates:
+            <int, bool>{
           5: _cell5Running,
           6: _cell6Running,
           9: _cell9Running,
           10: _cell10Running,
         },
-        manualEntryStates: Map<int, bool>.from(_manualEntryEnabled),
+        manualEntryStates:
+            Map<int, bool>.from(
+          _manualEntryEnabled,
+        ),
       );
 
-      final success = await recordsController.saveRecord(
+      final success =
+          await recordsController
+              .saveRecord(
         record,
       );
 
@@ -371,21 +415,21 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
       if (!success) {
         setState(() {
           _isSaving = false;
-          _errorMessage = recordsController.errorMessage ??
+          _errorMessage =
+              recordsController.errorMessage ??
               'تعذر حفظ البيانات.';
         });
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تم حفظ الأحمال بنجاح.',
-          ),
-        ),
-      );
-
-      Navigator.pop(context);
+      /*
+       * الحفظ تم بنجاح.
+       *
+       * بدل Navigator.pop الذي كان يرجع
+       * مدخل البيانات إلى شاشة سوداء،
+       * نقفل البرنامج بالكامل.
+       */
+      await _closeApplicationAfterSave();
     } catch (_) {
       if (!mounted) {
         return;
@@ -394,50 +438,96 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
       setState(() {
         _isSaving = false;
         _errorMessage =
-        'تعذر حفظ البيانات. تحقق من اتصال الإنترنت.';
+            'تعذر حفظ البيانات. تحقق من اتصال الإنترنت.';
       });
     }
   }
 
+  Future<void> _closeApplicationAfterSave() async {
+    if (!kIsWeb &&
+        defaultTargetPlatform ==
+            TargetPlatform.windows) {
+      /*
+       * Windows:
+       * إغلاق ملف EXE بالكامل بعد نجاح الحفظ.
+       */
+      exit(0);
+    }
+
+    /*
+     * Android وباقي تطبيقات Flutter المدعومة:
+     * إغلاق التطبيق من نظام التشغيل.
+     */
+    await SystemNavigator.pop();
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final authController = context.watch<AuthController>();
+  Widget build(
+    BuildContext context,
+  ) {
+    final authController =
+        context.watch<AuthController>();
 
     final distributorController =
-    context.watch<DistributorController>();
+        context.watch<DistributorController>();
 
-    final currentUser = authController.currentUser;
+    final currentUser =
+        authController.currentUser;
 
     final isDataEntry =
-        currentUser?.role == UserRole.dataEntry;
+        currentUser?.role ==
+        UserRole.dataEntry;
 
     final activeDistributors =
-        distributorController.activeDistributors;
+        distributorController
+            .activeDistributors;
 
-    final selectedDistributor = _selectedDistributor(
+    final selectedDistributor =
+        _selectedDistributor(
       distributorController,
     );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تسجيل الأحمال'),
+        title:
+            const Text(
+          'تسجيل الأحمال',
+        ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 900,
+      body:
+          SingleChildScrollView(
+        padding:
+            const EdgeInsets.all(
+          16,
+        ),
+        child:
+            Center(
+          child:
+              ConstrainedBox(
+            constraints:
+                const BoxConstraints(
+              maxWidth:
+                  900,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child:
+                Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
               children: [
-                if (distributorController.isLoading &&
-                    distributorController.distributors.isEmpty)
+                if (distributorController
+                        .isLoading &&
+                    distributorController
+                        .distributors
+                        .isEmpty)
                   const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(30),
-                      child: CircularProgressIndicator(),
+                    child:
+                        Padding(
+                      padding:
+                          EdgeInsets.all(
+                        30,
+                      ),
+                      child:
+                          CircularProgressIndicator(),
                     ),
                   )
                 else if (isDataEntry)
@@ -445,133 +535,216 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
                     selectedDistributor,
                   )
                 else
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedDistributorId,
-                    decoration: const InputDecoration(
-                      labelText: 'اختيار الموزع',
-                      prefixIcon: Icon(
+                  DropdownButtonFormField<
+                      String>(
+                    initialValue:
+                        _selectedDistributorId,
+                    decoration:
+                        const InputDecoration(
+                      labelText:
+                          'اختيار الموزع',
+                      prefixIcon:
+                          Icon(
                         Icons.account_tree,
                       ),
-                      border: OutlineInputBorder(),
+                      border:
+                          OutlineInputBorder(),
                     ),
-                    items: activeDistributors.map(
-                          (distributor) {
-                        return DropdownMenuItem<String>(
-                          value: distributor.id,
-                          child: Text(
+                    items:
+                        activeDistributors
+                            .map(
+                      (
+                        distributor,
+                      ) {
+                        return DropdownMenuItem<
+                            String>(
+                          value:
+                              distributor.id,
+                          child:
+                              Text(
                             '${distributor.name} - '
-                                '${distributor.code}',
+                            '${distributor.code}',
                           ),
                         );
                       },
                     ).toList(),
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                      setState(() {
-                        _selectedDistributorId = value;
-                        _errorMessage = null;
-                      });
-                    },
+                    onChanged:
+                        _isSaving
+                            ? null
+                            : (
+                              value,
+                            ) {
+                              setState(
+                                () {
+                                  _selectedDistributorId =
+                                      value;
+                                  _errorMessage =
+                                      null;
+                                },
+                              );
+                            },
                   ),
 
-                if (distributorController.errorMessage != null) ...[
-                  const SizedBox(height: 12),
+                if (distributorController
+                        .errorMessage !=
+                    null) ...[
+                  const SizedBox(
+                    height:
+                        12,
+                  ),
                   _buildErrorMessage(
-                    distributorController.errorMessage!,
+                    distributorController
+                        .errorMessage!,
                   ),
                 ],
 
-                const SizedBox(height: 16),
+                const SizedBox(
+                  height:
+                      16,
+                ),
 
                 TextField(
-                  controller: _operatorNameController,
-                  enabled: !_isSaving,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم مدخل البيانات',
-                    hintText: 'اكتب الاسم الثلاثي',
-                    prefixIcon: Icon(
+                  controller:
+                      _operatorNameController,
+                  enabled:
+                      !_isSaving,
+                  textInputAction:
+                      TextInputAction.next,
+                  decoration:
+                      const InputDecoration(
+                    labelText:
+                        'اسم مدخل البيانات',
+                    hintText:
+                        'اكتب الاسم الثلاثي',
+                    prefixIcon:
+                        Icon(
                       Icons.person_outline,
                     ),
-                    border: OutlineInputBorder(),
+                    border:
+                        OutlineInputBorder(),
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(
+                  height:
+                      24,
+                ),
 
                 Text(
                   'الخلايا الرقمية',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style:
+                      Theme.of(
+                    context,
+                  )
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(
+                  height:
+                      6,
+                ),
 
                 const Text(
                   'أي خلية تُترك فارغة يتم احتساب قيمتها صفرًا.',
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(
+                  height:
+                      12,
+                ),
 
                 _buildInputCells(),
 
-                const SizedBox(height: 24),
+                const SizedBox(
+                  height:
+                      24,
+                ),
 
                 Text(
                   'حالة خلايا الربط',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style:
+                      Theme.of(
+                    context,
+                  )
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(
+                  height:
+                      6,
+                ),
 
                 const Text(
                   'ضع علامة تشغيل للخلية. ويمكن تفعيل «يدوي» لإدخال حمل خلية الدخول بنفسك.',
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(
+                  height:
+                      12,
+                ),
 
                 _buildSwitchCells(),
 
-                const SizedBox(height: 24),
+                const SizedBox(
+                  height:
+                      24,
+                ),
 
                 _buildCalculatedResults(),
 
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
+                if (_errorMessage !=
+                    null) ...[
+                  const SizedBox(
+                    height:
+                        16,
+                  ),
                   _buildErrorMessage(
                     _errorMessage!,
                   ),
                 ],
 
-                const SizedBox(height: 24),
+                const SizedBox(
+                  height:
+                      24,
+                ),
 
                 SizedBox(
-                  height: 52,
-                  child: FilledButton.icon(
+                  height:
+                      52,
+                  child:
+                      FilledButton.icon(
                     onPressed:
-                    _isSaving ? null : _saveAndExit,
-                    icon: _isSaving
-                        ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
-                        : const Icon(
-                      Icons.save_alt,
-                    ),
-                    label: Text(
+                        _isSaving
+                            ? null
+                            : _saveAndExit,
+                    icon:
+                        _isSaving
+                            ? const SizedBox(
+                              width:
+                                  22,
+                              height:
+                                  22,
+                              child:
+                                  CircularProgressIndicator(
+                                strokeWidth:
+                                    2,
+                              ),
+                            )
+                            : const Icon(
+                              Icons.save_alt,
+                            ),
+                    label:
+                        Text(
                       _isSaving
                           ? 'جارٍ الحفظ...'
                           : 'حفظ وخروج',
@@ -587,78 +760,121 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
   }
 
   Widget _buildFixedDistributorCard(
-      Distributor? distributor,
-      ) {
+    Distributor? distributor,
+  ) {
     return Card(
-      child: ListTile(
-        leading: const CircleAvatar(
-          child: Icon(
+      child:
+          ListTile(
+        leading:
+            const CircleAvatar(
+          child:
+              Icon(
             Icons.account_tree,
           ),
         ),
-        title: Text(
+        title:
+            Text(
           distributor?.name ??
               'لم يتم ربط الحساب بموزع',
         ),
-        subtitle: distributor == null
-            ? const Text(
-          'راجع الرئيس لربط الحساب بالموزع.',
-        )
-            : Text(
-          'كود الموزع: ${distributor.code}',
-        ),
-        trailing: distributor == null
-            ? const Icon(
-          Icons.error_outline,
-        )
-            : const Icon(
-          Icons.lock_outline,
-        ),
+        subtitle:
+            distributor ==
+                    null
+                ? const Text(
+                  'راجع الرئيس لربط الحساب بالموزع.',
+                )
+                : Text(
+                  'كود الموزع: ${distributor.code}',
+                ),
+        trailing:
+            distributor ==
+                    null
+                ? const Icon(
+                  Icons.error_outline,
+                )
+                : const Icon(
+                  Icons.lock_outline,
+                ),
       ),
     );
   }
 
   Widget _buildInputCells() {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder:
+          (
+            context,
+            constraints,
+          ) {
         final double itemWidth;
 
-        if (constraints.maxWidth >= 700) {
-          itemWidth = (constraints.maxWidth - 24) / 3;
-        } else if (constraints.maxWidth >= 450) {
-          itemWidth = (constraints.maxWidth - 12) / 2;
+        if (constraints.maxWidth >=
+            700) {
+          itemWidth =
+              (constraints.maxWidth -
+                  24) /
+              3;
+        } else if (constraints.maxWidth >=
+            450) {
+          itemWidth =
+              (constraints.maxWidth -
+                  12) /
+              2;
         } else {
-          itemWidth = constraints.maxWidth;
+          itemWidth =
+              constraints.maxWidth;
         }
 
         return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: _inputCellNumbers.map(
-                (cellNumber) {
+          spacing:
+              12,
+          runSpacing:
+              12,
+          children:
+              _inputCellNumbers
+                  .map(
+            (
+              cellNumber,
+            ) {
               return SizedBox(
-                width: itemWidth,
-                child: TextField(
+                width:
+                    itemWidth,
+                child:
+                    TextField(
                   controller:
-                  _cellControllers[cellNumber],
-                  enabled: !_isSaving,
+                      _cellControllers[
+                          cellNumber],
+                  enabled:
+                      !_isSaving,
                   keyboardType:
-                  const TextInputType.numberWithOptions(
-                    decimal: true,
+                      const TextInputType
+                          .numberWithOptions(
+                    decimal:
+                        true,
                   ),
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*[\.,]?\d*$'),
+                  inputFormatters:
+                      <TextInputFormatter>[
+                    FilteringTextInputFormatter
+                        .allow(
+                      RegExp(
+                        r'^\d*[\.,]?\d*$',
+                      ),
                     ),
                   ],
-                  decoration: InputDecoration(
-                    labelText: 'خلية $cellNumber',
-                    hintText: '0',
-                    suffixText: 'أمبير',
-                    prefixIcon: const Icon(
+                  decoration:
+                      InputDecoration(
+                    labelText:
+                        'خلية $cellNumber',
+                    hintText:
+                        '0',
+                    suffixText:
+                        'أمبير',
+                    prefixIcon:
+                        const Icon(
                       Icons.electric_meter_outlined,
                     ),
-                    border: const OutlineInputBorder(),
+                    border:
+                        const OutlineInputBorder(),
                   ),
                 ),
               );
@@ -671,109 +887,216 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
 
   Widget _buildSwitchCells() {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder:
+          (
+            context,
+            constraints,
+          ) {
         final double itemWidth;
 
-        if (constraints.maxWidth >= 700) {
-          itemWidth = (constraints.maxWidth - 36) / 4;
-        } else if (constraints.maxWidth >= 450) {
-          itemWidth = (constraints.maxWidth - 12) / 2;
+        if (constraints.maxWidth >=
+            700) {
+          itemWidth =
+              (constraints.maxWidth -
+                  36) /
+              4;
+        } else if (constraints.maxWidth >=
+            450) {
+          itemWidth =
+              (constraints.maxWidth -
+                  12) /
+              2;
         } else {
-          itemWidth = constraints.maxWidth;
+          itemWidth =
+              constraints.maxWidth;
         }
 
         return Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing:
+              12,
+          runSpacing:
+              12,
           children: [
             _buildSwitchCell(
-              width: itemWidth,
-              cellNumber: 5,
-              value: _cell5Running,
-              manualEnabled: _manualEntryEnabled[5] ?? false,
-              manualController: _manualCellControllers[5]!,
-              onManualChanged: (value) {
-                setState(() {
-                  _manualEntryEnabled[5] = value;
-                });
+              width:
+                  itemWidth,
+              cellNumber:
+                  5,
+              value:
+                  _cell5Running,
+              manualEnabled:
+                  _manualEntryEnabled[
+                          5] ??
+                      false,
+              manualController:
+                  _manualCellControllers[
+                      5]!,
+              onManualChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _manualEntryEnabled[
+                            5] =
+                        value;
+                  },
+                );
                 _calculate();
               },
-              onChanged: (value) {
-                setState(() {
-                  _cell5Running = value;
-                  if (!value) {
-                    _manualEntryEnabled[5] = false;
-                  }
-                });
+              onChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _cell5Running =
+                        value;
+                    if (!value) {
+                      _manualEntryEnabled[
+                              5] =
+                          false;
+                    }
+                  },
+                );
 
                 _calculate();
               },
             ),
             _buildSwitchCell(
-              width: itemWidth,
-              cellNumber: 6,
-              value: _cell6Running,
-              manualEnabled: _manualEntryEnabled[6] ?? false,
-              manualController: _manualCellControllers[6]!,
-              onManualChanged: (value) {
-                setState(() {
-                  _manualEntryEnabled[6] = value;
-                });
+              width:
+                  itemWidth,
+              cellNumber:
+                  6,
+              value:
+                  _cell6Running,
+              manualEnabled:
+                  _manualEntryEnabled[
+                          6] ??
+                      false,
+              manualController:
+                  _manualCellControllers[
+                      6]!,
+              onManualChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _manualEntryEnabled[
+                            6] =
+                        value;
+                  },
+                );
                 _calculate();
               },
-              onChanged: (value) {
-                setState(() {
-                  _cell6Running = value;
-                  if (!value) {
-                    _manualEntryEnabled[6] = false;
-                  }
-                });
+              onChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _cell6Running =
+                        value;
+                    if (!value) {
+                      _manualEntryEnabled[
+                              6] =
+                          false;
+                    }
+                  },
+                );
 
                 _calculate();
               },
             ),
             _buildSwitchCell(
-              width: itemWidth,
-              cellNumber: 9,
-              value: _cell9Running,
-              manualEnabled: _manualEntryEnabled[9] ?? false,
-              manualController: _manualCellControllers[9]!,
-              onManualChanged: (value) {
-                setState(() {
-                  _manualEntryEnabled[9] = value;
-                });
+              width:
+                  itemWidth,
+              cellNumber:
+                  9,
+              value:
+                  _cell9Running,
+              manualEnabled:
+                  _manualEntryEnabled[
+                          9] ??
+                      false,
+              manualController:
+                  _manualCellControllers[
+                      9]!,
+              onManualChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _manualEntryEnabled[
+                            9] =
+                        value;
+                  },
+                );
                 _calculate();
               },
-              onChanged: (value) {
-                setState(() {
-                  _cell9Running = value;
-                  if (!value) {
-                    _manualEntryEnabled[9] = false;
-                  }
-                });
+              onChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _cell9Running =
+                        value;
+                    if (!value) {
+                      _manualEntryEnabled[
+                              9] =
+                          false;
+                    }
+                  },
+                );
 
                 _calculate();
               },
             ),
             _buildSwitchCell(
-              width: itemWidth,
-              cellNumber: 10,
-              value: _cell10Running,
-              manualEnabled: _manualEntryEnabled[10] ?? false,
-              manualController: _manualCellControllers[10]!,
-              onManualChanged: (value) {
-                setState(() {
-                  _manualEntryEnabled[10] = value;
-                });
+              width:
+                  itemWidth,
+              cellNumber:
+                  10,
+              value:
+                  _cell10Running,
+              manualEnabled:
+                  _manualEntryEnabled[
+                          10] ??
+                      false,
+              manualController:
+                  _manualCellControllers[
+                      10]!,
+              onManualChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _manualEntryEnabled[
+                            10] =
+                        value;
+                  },
+                );
                 _calculate();
               },
-              onChanged: (value) {
-                setState(() {
-                  _cell10Running = value;
-                  if (!value) {
-                    _manualEntryEnabled[10] = false;
-                  }
-                });
+              onChanged:
+                  (
+                    value,
+                  ) {
+                setState(
+                  () {
+                    _cell10Running =
+                        value;
+                    if (!value) {
+                      _manualEntryEnabled[
+                              10] =
+                          false;
+                    }
+                  },
+                );
 
                 _calculate();
               },
@@ -794,69 +1117,132 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
     required ValueChanged<bool> onChanged,
   }) {
     return SizedBox(
-      width: width,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 6,
+      width:
+          width,
+      child:
+          Card(
+        child:
+            Padding(
+          padding:
+              const EdgeInsets.symmetric(
+            horizontal:
+                8,
+            vertical:
+                6,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child:
+              Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.stretch,
             children: [
               CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
+                contentPadding:
+                    EdgeInsets.zero,
+                title:
+                    Text(
                   'خلية $cellNumber',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                  style:
+                      const TextStyle(
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
-                subtitle: Text(
-                  value ? 'تشغيل' : 'فصل',
+                subtitle:
+                    Text(
+                  value
+                      ? 'تشغيل'
+                      : 'فصل',
                 ),
-                value: value,
-                onChanged: _isSaving
-                    ? null
-                    : (newValue) {
-                  onChanged(newValue ?? false);
-                },
-                secondary: Icon(
-                  value ? Icons.power : Icons.power_off,
+                value:
+                    value,
+                onChanged:
+                    _isSaving
+                        ? null
+                        : (
+                          newValue,
+                        ) {
+                          onChanged(
+                            newValue ??
+                                false,
+                          );
+                        },
+                secondary:
+                    Icon(
+                  value
+                      ? Icons.power
+                      : Icons.power_off,
                 ),
               ),
-              const Divider(height: 8),
+              const Divider(
+                height:
+                    8,
+              ),
               CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: const Text('إدخال يدوي'),
-                value: manualEnabled,
-                onChanged: (_isSaving || !value)
-                    ? null
-                    : (newValue) {
-                  onManualChanged(newValue ?? false);
-                },
-                secondary: const Icon(Icons.edit_outlined),
+                dense:
+                    true,
+                contentPadding:
+                    EdgeInsets.zero,
+                title:
+                    const Text(
+                  'إدخال يدوي',
+                ),
+                value:
+                    manualEnabled,
+                onChanged:
+                    (_isSaving ||
+                            !value)
+                        ? null
+                        : (
+                          newValue,
+                        ) {
+                          onManualChanged(
+                            newValue ??
+                                false,
+                          );
+                        },
+                secondary:
+                    const Icon(
+                  Icons.edit_outlined,
+                ),
               ),
-              if (manualEnabled && value) ...[
-                const SizedBox(height: 6),
+              if (manualEnabled &&
+                  value) ...[
+                const SizedBox(
+                  height:
+                      6,
+                ),
                 TextField(
-                  controller: manualController,
-                  enabled: !_isSaving,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+                  controller:
+                      manualController,
+                  enabled:
+                      !_isSaving,
+                  keyboardType:
+                      const TextInputType
+                          .numberWithOptions(
+                    decimal:
+                        true,
                   ),
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*[\.,]?\d*$'),
+                  inputFormatters:
+                      <TextInputFormatter>[
+                    FilteringTextInputFormatter
+                        .allow(
+                      RegExp(
+                        r'^\d*[\.,]?\d*$',
+                      ),
                     ),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: 'الحمل اليدوي',
-                    hintText: '0',
-                    suffixText: 'أمبير',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+                  decoration:
+                      const InputDecoration(
+                    labelText:
+                        'الحمل اليدوي',
+                    hintText:
+                        '0',
+                    suffixText:
+                        'أمبير',
+                    border:
+                        OutlineInputBorder(),
+                    isDense:
+                        true,
                   ),
                 ),
               ],
@@ -868,98 +1254,152 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
   }
 
   Widget _buildCalculatedResults() {
-    final result = _calculationResult;
+    final result =
+        _calculationResult;
 
     if (result == null) {
       return const SizedBox.shrink();
     }
 
     return Card(
-      color: result.isValid
-          ? null
-          : Theme.of(context).colorScheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      color:
+          result.isValid
+              ? null
+              : Theme.of(
+                context,
+              ).colorScheme.errorContainer,
+      child:
+          Padding(
+        padding:
+            const EdgeInsets.all(
+          16,
+        ),
+        child:
+            Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.stretch,
           children: [
             Text(
               'النتائج المحسوبة',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style:
+                  Theme.of(
+                context,
+              )
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(
+              height:
+                  12,
+            ),
 
             _buildGroupSummary(
-              title: 'مجموع الخلايا من 0 إلى 4',
-              value: result.groupA,
+              title:
+                  'مجموع الخلايا من 0 إلى 4',
+              value:
+                  result.groupA,
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(
+              height:
+                  8,
+            ),
 
             _buildGroupSummary(
-              title: 'مجموع الخلايا من 11 إلى 15',
-              value: result.groupB,
+              title:
+                  'مجموع الخلايا من 11 إلى 15',
+              value:
+                  result.groupB,
             ),
 
-            const Divider(height: 24),
+            const Divider(
+              height:
+                  24,
+            ),
 
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing:
+                  12,
+              runSpacing:
+                  12,
               children: [
                 _resultChip(
-                  title: 'خلية 5',
-                  value: result.cell5,
-                  running: _cell5Running,
+                  title:
+                      'خلية 5',
+                  value:
+                      result.cell5,
+                  running:
+                      _cell5Running,
                 ),
                 _resultChip(
-                  title: 'خلية 6',
-                  value: result.cell6,
-                  running: _cell6Running,
+                  title:
+                      'خلية 6',
+                  value:
+                      result.cell6,
+                  running:
+                      _cell6Running,
                 ),
                 _resultChip(
-                  title: 'خلية 9',
-                  value: result.cell9,
-                  running: _cell9Running,
+                  title:
+                      'خلية 9',
+                  value:
+                      result.cell9,
+                  running:
+                      _cell9Running,
                 ),
                 _resultChip(
-                  title: 'خلية 10',
-                  value: result.cell10,
-                  running: _cell10Running,
+                  title:
+                      'خلية 10',
+                  value:
+                      result.cell10,
+                  running:
+                      _cell10Running,
                 ),
               ],
             ),
 
-            const Divider(height: 24),
+            const Divider(
+              height:
+                  24,
+            ),
 
             Row(
               children: [
                 const Icon(
                   Icons.functions,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(
+                  width:
+                      10,
+                ),
                 const Expanded(
-                  child: Text(
+                  child:
+                      Text(
                     'إجمالي الحمل',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
+                    style:
+                        TextStyle(
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ),
                 Text(
                   '${result.totalInputLoad.toStringAsFixed(2)} أمبير',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style:
+                      Theme.of(
+                    context,
+                  )
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
                 ),
               ],
             ),
@@ -976,12 +1416,17 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
     return Row(
       children: [
         Expanded(
-          child: Text(title),
+          child:
+              Text(
+            title,
+          ),
         ),
         Text(
           '${value.toStringAsFixed(2)} أمبير',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
+          style:
+              const TextStyle(
+            fontWeight:
+                FontWeight.bold,
           ),
         ),
       ],
@@ -994,45 +1439,68 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
     required bool running,
   }) {
     return Chip(
-      avatar: Icon(
+      avatar:
+          Icon(
         running
             ? Icons.bolt
             : Icons.power_off,
-        size: 18,
+        size:
+            18,
       ),
-      label: Text(
+      label:
+          Text(
         '$title: ${value.toStringAsFixed(2)} أمبير',
       ),
     );
   }
 
   Widget _buildErrorMessage(
-      String message,
-      ) {
+    String message,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .errorContainer,
-        borderRadius: BorderRadius.circular(8),
+      padding:
+          const EdgeInsets.all(
+        12,
       ),
-      child: Row(
+      decoration:
+          BoxDecoration(
+        color:
+            Theme.of(
+          context,
+        ).colorScheme.errorContainer,
+        borderRadius:
+            BorderRadius.circular(
+          8,
+        ),
+      ),
+      child:
+          Row(
         children: [
           Icon(
             Icons.error_outline,
-            color: Theme.of(context)
-                .colorScheme
-                .onErrorContainer,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: Theme.of(context)
+            color:
+                Theme.of(
+              context,
+            )
                     .colorScheme
                     .onErrorContainer,
+          ),
+          const SizedBox(
+            width:
+                10,
+          ),
+          Expanded(
+            child:
+                Text(
+              message,
+              style:
+                  TextStyle(
+                color:
+                    Theme.of(
+                  context,
+                )
+                        .colorScheme
+                        .onErrorContainer,
               ),
             ),
           ),
