@@ -25,8 +25,7 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState
     extends State<ReportsScreen> {
-  static const List<int> _allCellNumbers =
-      <int>[
+  static const List<int> _allCellNumbers = <int>[
     0,
     1,
     2,
@@ -41,13 +40,8 @@ class _ReportsScreenState
     13,
     14,
     15,
-    16,
   ];
 
-  /*
-   * بدل بناء تقرير شهر أو سنة كامل
-   * مرة واحدة، نعرض 7 أيام فقط.
-   */
   static const int _daysPerPage = 7;
 
   String? _selectedDistributorId;
@@ -142,7 +136,8 @@ class _ReportsScreenState
       if (_toDate.isBefore(
         _fromDate,
       )) {
-        _toDate = _fromDate;
+        _toDate =
+            _fromDate;
       }
 
       _searched = false;
@@ -202,14 +197,15 @@ class _ReportsScreenState
         context.read<
             LoadRecordsController>();
 
-    /*
-     * جميع الموزعات:
-     *
-     * لا نطلب فترة متصلة تشمل 24 ساعة.
-     * نطلب فقط الساعة المختارة
-     * لكل يوم.
-     */
     if (_allDistributors) {
+      /*
+       * جميع الموزعات:
+       *
+       * تحميل الساعة المطلوبة فقط
+       * لكل يوم.
+       *
+       * لا يتم تحميل كل ساعات الفترة.
+       */
       await controller
           .searchAllDistributorsByHour(
         fromDate:
@@ -222,7 +218,8 @@ class _ReportsScreenState
     } else {
       /*
        * موزع واحد:
-       * نريد كل ساعات الفترة.
+       *
+       * نحتاج جميع ساعات الفترة.
        */
       await controller.search(
         distributorId:
@@ -241,12 +238,8 @@ class _ReportsScreenState
           59,
           999,
         ),
-
-        /*
-         * حماية من بناء آلاف
-         * العناصر في واجهة واحدة.
-         */
-        limit: 500,
+        limit:
+            500,
       );
     }
 
@@ -255,7 +248,8 @@ class _ReportsScreenState
     }
 
     setState(() {
-      _searched = true;
+      _searched =
+          true;
 
       _visibleDaysCount =
           _daysPerPage;
@@ -284,7 +278,8 @@ class _ReportsScreenState
       _selectedHour =
           DateTime.now().hour;
 
-      _searched = false;
+      _searched =
+          false;
 
       _visibleDaysCount =
           _daysPerPage;
@@ -332,7 +327,8 @@ class _ReportsScreenState
           'الأحد',
     };
 
-    return names[value.weekday] ??
+    return names[
+            value.weekday] ??
         '';
   }
 
@@ -380,7 +376,8 @@ class _ReportsScreenState
         current,
       );
 
-      current = current.add(
+      current =
+          current.add(
         const Duration(
           days: 1,
         ),
@@ -408,7 +405,8 @@ class _ReportsScreenState
         in records.skip(1)) {
       if (record.totalLoad >
           result.totalLoad) {
-        result = record;
+        result =
+            record;
       }
     }
 
@@ -429,7 +427,8 @@ class _ReportsScreenState
         in records.skip(1)) {
       if (record.totalLoad <
           result.totalLoad) {
-        result = record;
+        result =
+            record;
       }
     }
 
@@ -446,7 +445,8 @@ class _ReportsScreenState
         distributors,
   }) async {
     await ReportPdfService.printReport(
-      records: records,
+      records:
+          records,
       distributors:
           distributors,
       selectedDistributorId:
@@ -590,11 +590,12 @@ class _ReportsScreenState
 
     final titleController =
         TextEditingController(
-      text: _allDistributors
-          ? 'تقرير جميع الموزعات '
-              '${_formatDate(_fromDate)}'
-          : 'تقرير موزع '
-              '${_formatDate(_fromDate)}',
+      text:
+          _allDistributors
+              ? 'تقرير جميع الموزعات '
+                  '${_formatDate(_fromDate)}'
+              : 'تقرير موزع '
+                  '${_formatDate(_fromDate)}',
     );
 
     final notesController =
@@ -606,11 +607,13 @@ class _ReportsScreenState
       builder:
           (dialogContext) {
         return AlertDialog(
-          title: const Text(
+          title:
+              const Text(
             'حفظ التقرير',
           ),
           content: SizedBox(
-            width: 430,
+            width:
+                430,
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
@@ -626,13 +629,17 @@ class _ReportsScreenState
                         OutlineInputBorder(),
                   ),
                 ),
+
                 const SizedBox(
-                  height: 12,
+                  height:
+                      12,
                 ),
+
                 TextField(
                   controller:
                       notesController,
-                  maxLines: 3,
+                  maxLines:
+                      3,
                   decoration:
                       const InputDecoration(
                     labelText:
@@ -646,8 +653,9 @@ class _ReportsScreenState
           ),
           actions: [
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(
+              onPressed:
+                  () =>
+                      Navigator.pop(
                 dialogContext,
                 false,
               ),
@@ -656,9 +664,11 @@ class _ReportsScreenState
                 'إلغاء',
               ),
             ),
+
             FilledButton.icon(
-              onPressed: () =>
-                  Navigator.pop(
+              onPressed:
+                  () =>
+                      Navigator.pop(
                 dialogContext,
                 true,
               ),
@@ -684,8 +694,11 @@ class _ReportsScreenState
       return;
     }
 
-    String targetId = '';
-    String targetName = '';
+    String targetId =
+        '';
+
+    String targetName =
+        '';
 
     if (!_allDistributors &&
         _selectedDistributorId !=
@@ -806,13 +819,6 @@ class _ReportsScreenState
             ),
           );
 
-    /*
-     * أهم تحسين أداء:
-     *
-     * بناء Index مرة واحدة فقط.
-     * بدل البحث داخل records
-     * لكل خلية × موزع × يوم.
-     */
     final index =
         _ReportIndex.build(
       records:
@@ -836,12 +842,14 @@ class _ReportsScreenState
               visibleCount,
             )
             .toList(
-              growable: false,
+              growable:
+                  false,
             );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title:
+            const Text(
           'تقارير أحمال الموزعات',
         ),
         actions: [
@@ -853,8 +861,9 @@ class _ReportsScreenState
                 Navigator.of(context)
                     .push(
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        const SavedReportsScreen(),
+                    builder:
+                        (_) =>
+                            const SavedReportsScreen(),
                   ),
                 );
               },
@@ -864,22 +873,26 @@ class _ReportsScreenState
                     .folder_copy_outlined,
               ),
             ),
+
           if (isPresident &&
               _searched)
             IconButton(
               tooltip:
                   'حفظ التقرير',
-              onPressed: () =>
-                  _saveCurrentReport(
+              onPressed:
+                  () =>
+                      _saveCurrentReport(
                 distributors:
                     distributorController
                         .distributors,
               ),
               icon:
                   const Icon(
-                Icons.save_outlined,
+                Icons
+                    .save_outlined,
               ),
             ),
+
           IconButton(
             tooltip:
                 'مشاركة PDF',
@@ -902,6 +915,7 @@ class _ReportsScreenState
                   .picture_as_pdf_outlined,
             ),
           ),
+
           IconButton(
             tooltip:
                 'Excel',
@@ -924,6 +938,7 @@ class _ReportsScreenState
                   .table_view_outlined,
             ),
           ),
+
           IconButton(
             tooltip:
                 'طباعة',
@@ -942,7 +957,8 @@ class _ReportsScreenState
                         ),
             icon:
                 const Icon(
-              Icons.print_outlined,
+              Icons
+                  .print_outlined,
             ),
           ),
         ],
@@ -965,7 +981,8 @@ class _ReportsScreenState
             ),
 
             const SizedBox(
-              height: 14,
+              height:
+                  14,
             ),
 
             if (recordsController
@@ -975,7 +992,8 @@ class _ReportsScreenState
                     EdgeInsets.all(
                   40,
                 ),
-                child: Center(
+                child:
+                    Center(
                   child:
                       CircularProgressIndicator(),
                 ),
@@ -984,9 +1002,10 @@ class _ReportsScreenState
                     .errorMessage !=
                 null)
               Card(
-                color: Theme.of(context)
-                    .colorScheme
-                    .errorContainer,
+                color:
+                    Theme.of(context)
+                        .colorScheme
+                        .errorContainer,
                 child: Padding(
                   padding:
                       const EdgeInsets
@@ -1007,8 +1026,7 @@ class _ReportsScreenState
                     35,
                   ),
                   child: Text(
-                    'اختر بيانات البحث '
-                    'ثم اضغط بحث.',
+                    'اختر بيانات البحث ثم اضغط بحث.',
                     textAlign:
                         TextAlign.center,
                   ),
@@ -1024,19 +1042,13 @@ class _ReportsScreenState
                         35,
                       ),
                       child: Text(
-                        'لا توجد سجلات '
-                        'مطابقة للبحث.',
+                        'لا توجد سجلات مطابقة للبحث.',
                         textAlign:
-                            TextAlign
-                                .center,
+                            TextAlign.center,
                       ),
                     ),
                   )
                 else ...[
-                  /*
-                   * عرض الأيام تدريجيًا
-                   * بدل بناء شهر كامل.
-                   */
                   for (final day
                       in visibleDays)
                     _buildAllDistributorsReport(
@@ -1054,11 +1066,13 @@ class _ReportsScreenState
                       padding:
                           const EdgeInsets
                               .only(
-                        bottom: 20,
+                        bottom:
+                            20,
                       ),
                       child:
                           FilledButton.icon(
-                        onPressed: () {
+                        onPressed:
+                            () {
                           setState(
                             () {
                               _visibleDaysCount +=
@@ -1071,7 +1085,8 @@ class _ReportsScreenState
                           Icons
                               .expand_more,
                         ),
-                        label: Text(
+                        label:
+                            Text(
                           'عرض أيام إضافية '
                           '(${selectedDays.length - visibleCount} متبقي)',
                         ),
@@ -1100,10 +1115,8 @@ class _ReportsScreenState
   // =========================================================
 
   Widget _buildSearchCard(
-    DistributorController
-        distributors,
-    LoadRecordsController
-        records,
+    DistributorController distributors,
+    LoadRecordsController records,
   ) {
     return Card(
       child: Padding(
@@ -1113,22 +1126,23 @@ class _ReportsScreenState
         ),
         child: Column(
           crossAxisAlignment:
-              CrossAxisAlignment
-                  .stretch,
+              CrossAxisAlignment.stretch,
           children: [
             Text(
               'البحث والتصفية',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
+              style:
+                  Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
             ),
 
             const SizedBox(
-              height: 14,
+              height:
+                  14,
             ),
 
             DropdownButtonFormField<
@@ -1141,7 +1155,8 @@ class _ReportsScreenState
                     'الموزع',
                 prefixIcon:
                     Icon(
-                  Icons.account_tree,
+                  Icons
+                      .account_tree,
                 ),
                 border:
                     OutlineInputBorder(),
@@ -1149,11 +1164,14 @@ class _ReportsScreenState
               items: [
                 const DropdownMenuItem<
                     String>(
-                  value: null,
-                  child: Text(
+                  value:
+                      null,
+                  child:
+                      Text(
                     'جميع الموزعات',
                   ),
                 ),
+
                 ...distributors
                     .distributors
                     .map(
@@ -1162,7 +1180,8 @@ class _ReportsScreenState
                         String>(
                       value:
                           distributor.id,
-                      child: Text(
+                      child:
+                          Text(
                         '${distributor.name} - '
                         '${distributor.code}',
                       ),
@@ -1190,12 +1209,15 @@ class _ReportsScreenState
             ),
 
             const SizedBox(
-              height: 14,
+              height:
+                  14,
             ),
 
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing:
+                  10,
+              runSpacing:
+                  10,
               children: [
                 _DateSelector(
                   title:
@@ -1205,11 +1227,11 @@ class _ReportsScreenState
                     _fromDate,
                   ),
                   onPressed:
-                      records
-                              .isLoading
+                      records.isLoading
                           ? null
                           : _selectFromDate,
                 ),
+
                 _DateSelector(
                   title:
                       'إلى يوم',
@@ -1218,14 +1240,15 @@ class _ReportsScreenState
                     _toDate,
                   ),
                   onPressed:
-                      records
-                              .isLoading
+                      records.isLoading
                           ? null
                           : _selectToDate,
                 ),
+
                 if (_allDistributors)
                   SizedBox(
-                    width: 240,
+                    width:
+                        240,
                     child:
                         DropdownButtonFormField<
                             int>(
@@ -1237,8 +1260,7 @@ class _ReportsScreenState
                             'الساعة الكاملة',
                         prefixIcon:
                             Icon(
-                          Icons
-                              .schedule,
+                          Icons.schedule,
                         ),
                         border:
                             OutlineInputBorder(),
@@ -1261,8 +1283,7 @@ class _ReportsScreenState
                         },
                       ),
                       onChanged:
-                          records
-                                  .isLoading
+                          records.isLoading
                               ? null
                               : (value) {
                                   setState(
@@ -1287,24 +1308,27 @@ class _ReportsScreenState
             if (_allDistributors)
               ...[
                 const SizedBox(
-                  height: 10,
+                  height:
+                      10,
                 ),
+
                 Text(
                   'سيتم تحميل '
                   '${_formatHourRange(_selectedHour)} '
-                  'فقط لكل يوم، '
-                  'وليس جميع ساعات الفترة.',
+                  'فقط لكل يوم، وليس جميع ساعات الفترة.',
                   textAlign:
                       TextAlign.center,
                 ),
               ],
 
             const SizedBox(
-              height: 14,
+              height:
+                  14,
             ),
 
             Wrap(
-              spacing: 10,
+              spacing:
+                  10,
               alignment:
                   WrapAlignment.end,
               children: [
@@ -1322,6 +1346,7 @@ class _ReportsScreenState
                     'مسح البحث',
                   ),
                 ),
+
                 FilledButton.icon(
                   onPressed:
                       records.isLoading
@@ -1345,7 +1370,7 @@ class _ReportsScreenState
   }
 
   // =========================================================
-  // ALL DISTRIBUTORS REPORT
+  // ALL DISTRIBUTORS
   // =========================================================
 
   Widget _buildAllDistributorsReport({
@@ -1377,7 +1402,8 @@ class _ReportsScreenState
     return Card(
       margin:
           const EdgeInsets.only(
-        bottom: 18,
+        bottom:
+            18,
       ),
       child: Padding(
         padding:
@@ -1386,39 +1412,38 @@ class _ReportsScreenState
         ),
         child: Column(
           crossAxisAlignment:
-              CrossAxisAlignment
-                  .stretch,
+              CrossAxisAlignment.stretch,
           children: [
             Text(
               'أحمال خلايا الموزعات',
               textAlign:
                   TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
+              style:
+                  Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
             ),
 
             const SizedBox(
-              height: 5,
+              height:
+                  5,
             ),
 
             Text(
-              'اليوم: '
-              '${_dayName(day)}    '
-              'التاريخ: '
-              '${_formatDate(day)}    '
-              'الفترة: '
-              '${_formatHourRange(_selectedHour)}',
+              'اليوم: ${_dayName(day)}    '
+              'التاريخ: ${_formatDate(day)}    '
+              'الفترة: ${_formatHourRange(_selectedHour)}',
               textAlign:
                   TextAlign.center,
             ),
 
             const SizedBox(
-              height: 12,
+              height:
+                  12,
             ),
 
             if (groups.isEmpty)
@@ -1440,7 +1465,8 @@ class _ReportsScreenState
                   padding:
                       const EdgeInsets
                           .only(
-                    bottom: 14,
+                    bottom:
+                        14,
                   ),
                   child:
                       _buildDistributorGrid(
@@ -1494,6 +1520,7 @@ class _ReportsScreenState
                 const FixedColumnWidth(
               90,
             ),
+
             for (var i = 0;
                 i <
                     distributors.length *
@@ -1510,6 +1537,7 @@ class _ReportsScreenState
                 _tableHeader(
                   'الخلايا',
                 ),
+
                 for (final distributor
                     in distributors)
                   ...[
@@ -1534,6 +1562,7 @@ class _ReportsScreenState
                 _tableHeader(
                   'رقم الخلية',
                 ),
+
                 for (final _
                     in distributors)
                   ...[
@@ -1574,6 +1603,7 @@ class _ReportsScreenState
                               cell,
                         ),
                       ),
+
                       _tableValue(
                         index
                             .minimumCellValue(
@@ -1583,6 +1613,7 @@ class _ReportsScreenState
                               cell,
                         ),
                       ),
+
                       _tableValue(
                         index
                             .maximumCellValue(
@@ -1630,8 +1661,7 @@ class _ReportsScreenState
   }) {
     return Padding(
       padding:
-          const EdgeInsets
-              .symmetric(
+          const EdgeInsets.symmetric(
         vertical:
             5,
         horizontal:
@@ -1641,7 +1671,8 @@ class _ReportsScreenState
         text,
         textAlign:
             TextAlign.center,
-        style: TextStyle(
+        style:
+            TextStyle(
           fontWeight:
               bold
                   ? FontWeight.bold
@@ -1716,41 +1747,33 @@ class _ReportsScreenState
         _selectedDistributorId ??
             '';
 
-    /*
-     * لا نبني مئات ExpansionTile
-     * دفعة واحدة على جهاز قديم.
-     */
     final visibleRecords =
         sorted.length > 100
             ? sorted
-                .take(100)
+                .take(
+                  100,
+                )
                 .toList()
             : sorted;
 
     return Column(
       crossAxisAlignment:
-          CrossAxisAlignment
-              .stretch,
+          CrossAxisAlignment.stretch,
       children: [
         Card(
           child: Padding(
             padding:
-                const EdgeInsets
-                    .all(
+                const EdgeInsets.all(
               14,
             ),
             child: Column(
               children: [
                 Text(
-                  distributor
-                          ?.name ??
-                      sorted
-                          .first
+                  distributor?.name ??
+                      sorted.first
                           .distributorName,
                   style:
-                      Theme.of(
-                    context,
-                  )
+                      Theme.of(context)
                           .textTheme
                           .titleLarge
                           ?.copyWith(
@@ -1760,7 +1783,8 @@ class _ReportsScreenState
                 ),
 
                 const SizedBox(
-                  height: 4,
+                  height:
+                      4,
                 ),
 
                 Text(
@@ -1769,11 +1793,11 @@ class _ReportsScreenState
                 ),
 
                 const SizedBox(
-                  height: 12,
+                  height:
+                      12,
                 ),
 
-                if (maximum !=
-                    null)
+                if (maximum != null)
                   Text(
                     'أقصى حمل: '
                     '${maximum.totalLoad.toStringAsFixed(2)} أمبير'
@@ -1781,8 +1805,7 @@ class _ReportsScreenState
                     '${_formatDateTime(maximum.recordedAt)}',
                   ),
 
-                if (minimum !=
-                    null)
+                if (minimum != null)
                   Text(
                     'أقل حمل: '
                     '${minimum.totalLoad.toStringAsFixed(2)} أمبير'
@@ -1795,30 +1818,26 @@ class _ReportsScreenState
         ),
 
         const SizedBox(
-          height: 12,
+          height:
+              12,
         ),
 
         Card(
           child: Padding(
             padding:
-                const EdgeInsets
-                    .all(
+                const EdgeInsets.all(
               12,
             ),
             child: Column(
               crossAxisAlignment:
-                  CrossAxisAlignment
-                      .stretch,
+                  CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'أقصى وأقل حمل '
-                  'لكل خلية خلال فترة البحث',
+                  'أقصى وأقل حمل لكل خلية خلال فترة البحث',
                   textAlign:
                       TextAlign.center,
                   style:
-                      Theme.of(
-                    context,
-                  )
+                      Theme.of(context)
                           .textTheme
                           .titleMedium
                           ?.copyWith(
@@ -1828,7 +1847,8 @@ class _ReportsScreenState
                 ),
 
                 const SizedBox(
-                  height: 10,
+                  height:
+                      10,
                 ),
 
                 SingleChildScrollView(
@@ -1862,6 +1882,7 @@ class _ReportsScreenState
                           ),
                         ],
                       ),
+
                       for (final cell
                           in _allCellNumbers)
                         TableRow(
@@ -1871,6 +1892,7 @@ class _ReportsScreenState
                               bold:
                                   true,
                             ),
+
                             _tableValue(
                               index
                                   .minimumCellValue(
@@ -1880,6 +1902,7 @@ class _ReportsScreenState
                                     cell,
                               ),
                             ),
+
                             _tableValue(
                               index
                                   .maximumCellValue(
@@ -1900,16 +1923,17 @@ class _ReportsScreenState
         ),
 
         const SizedBox(
-          height: 12,
+          height:
+              12,
         ),
 
         if (sorted.length >
             visibleRecords.length)
           Padding(
             padding:
-                const EdgeInsets
-                    .only(
-              bottom: 8,
+                const EdgeInsets.only(
+              bottom:
+                  8,
             ),
             child: Text(
               'يتم عرض أحدث '
@@ -1939,8 +1963,7 @@ class _ReportsScreenState
               children: [
                 Padding(
                   padding:
-                      const EdgeInsets
-                          .all(
+                      const EdgeInsets.all(
                     12,
                   ),
                   child: Wrap(
@@ -1997,9 +2020,6 @@ class _ReportIndex {
     final ranges =
         <String, _MutableCellRange>{};
 
-    /*
-     * دورة واحدة فقط على البيانات.
-     */
     for (final record
         in records) {
       final day =
@@ -2011,9 +2031,6 @@ class _ReportIndex {
           '${day.day}-'
           '${record.distributorId}';
 
-      /*
-       * السجل الحالي لليوم/الموزع.
-       */
       if (record.recordedAt.hour ==
           hour) {
         final old =
@@ -2029,14 +2046,8 @@ class _ReportIndex {
         }
       }
 
-      /*
-       * Min / Max لكل خلية
-       * ولكل موزع خلال كامل فترة البحث.
-       */
       for (final entry
-          in record
-              .cellValues
-              .entries) {
+          in record.cellValues.entries) {
         final rangeKey =
             '${record.distributorId}'
             '-${entry.key}';
@@ -2096,9 +2107,8 @@ class _ReportIndex {
       return 'لم يسجل';
     }
 
-    return (record
-                .cellValues[
-            cellNumber] ??
+    return (record.cellValues[
+                cellNumber] ??
             0)
         .toStringAsFixed(
       1,
@@ -2198,7 +2208,8 @@ class _DateSelector
     BuildContext context,
   ) {
     return SizedBox(
-      width: 220,
+      width:
+          220,
       child:
           OutlinedButton(
         onPressed:
@@ -2216,9 +2227,12 @@ class _DateSelector
             const Icon(
               Icons.date_range,
             ),
+
             const SizedBox(
-              width: 10,
+              width:
+                  10,
             ),
+
             Expanded(
               child: Text(
                 '$title\n$value',
