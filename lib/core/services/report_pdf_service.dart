@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart'
+    show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -27,8 +28,11 @@ class ReportPdfService {
     13,
     14,
     15,
-    16,
   ];
+
+  // =========================================================
+  // BUILD PDF
+  // =========================================================
 
   static Future<Uint8List> buildPdf({
     required List<LoadRecord> records,
@@ -50,9 +54,20 @@ class ReportPdfService {
     final logoBytes =
         await _loadLogoBytes();
 
-    final theme = pw.ThemeData.withFont(
+    final theme =
+        pw.ThemeData.withFont(
       base: regularFont,
       bold: boldFont,
+    );
+
+    /*
+     * نبني Index مرة واحدة فقط.
+     * ده يمنع إعادة البحث في records
+     * آلاف المرات أثناء إنشاء الـPDF.
+     */
+    final index =
+        _ReportPdfIndex.build(
+      records,
     );
 
     if (allDistributorsHourly) {
@@ -75,14 +90,18 @@ class ReportPdfService {
               .toList()
             ..sort(
               (a, b) =>
-                  a.name.compareTo(b.name),
+                  a.name.compareTo(
+                b.name,
+              ),
             );
 
-      for (final day
-          in _daysBetween(
+      final days =
+          _daysBetween(
         start,
         end,
-      )) {
+      );
+
+      for (final day in days) {
         document.addPage(
           pw.MultiPage(
             pageFormat:
@@ -91,23 +110,34 @@ class ReportPdfService {
                 const pw.EdgeInsets.all(
               14,
             ),
-            theme: theme,
-            header: (_) =>
-                _buildHeader(
+            theme:
+                theme,
+            header:
+                (_) => _buildHeader(
               logoBytes,
             ),
-            footer: (_) =>
-                _buildFooter(),
-            build: (_) => [
+            footer:
+                (_) => _buildFooter(),
+            build:
+                (_) => <pw.Widget>[
               _buildPeriodRow(
-                day: day,
-                hour: hour,
+                day:
+                    day,
+                hour:
+                    hour,
               ),
-              pw.SizedBox(height: 7),
+
+              pw.SizedBox(
+                height: 7,
+              ),
+
               ..._buildDistributorTables(
-                day: day,
-                hour: hour,
-                records: records,
+                day:
+                    day,
+                hour:
+                    hour,
+                index:
+                    index,
                 distributors:
                     activeDistributors,
               ),
@@ -127,20 +157,30 @@ class ReportPdfService {
           pageFormat:
               PdfPageFormat.a4.landscape,
           margin:
-              const pw.EdgeInsets.all(16),
-          theme: theme,
-          header: (_) =>
-              _buildHeader(
+              const pw.EdgeInsets.all(
+            16,
+          ),
+          theme:
+              theme,
+          header:
+              (_) => _buildHeader(
             logoBytes,
           ),
-          footer: (_) =>
-              _buildFooter(),
-          build: (_) =>
-              _buildSingleDistributor(
-            records: records,
-            distributor: distributor,
-            fromDate: fromDate,
-            toDate: toDate,
+          footer:
+              (_) => _buildFooter(),
+          build:
+              (_) =>
+                  _buildSingleDistributor(
+            records:
+                records,
+            distributor:
+                distributor,
+            index:
+                index,
+            fromDate:
+                fromDate,
+            toDate:
+                toDate,
           ),
         ),
       );
@@ -148,6 +188,10 @@ class ReportPdfService {
 
     return document.save();
   }
+
+  // =========================================================
+  // PRINT
+  // =========================================================
 
   static Future<void> printReport({
     required List<LoadRecord> records,
@@ -158,26 +202,37 @@ class ReportPdfService {
     DateTime? toDate,
     bool allDistributorsHourly = false,
   }) async {
-    final bytes = await buildPdf(
-      records: records,
-      distributors: distributors,
+    final bytes =
+        await buildPdf(
+      records:
+          records,
+      distributors:
+          distributors,
       selectedDistributorId:
           selectedDistributorId,
       selectedDateTime:
           selectedDateTime,
-      fromDate: fromDate,
-      toDate: toDate,
+      fromDate:
+          fromDate,
+      toDate:
+          toDate,
       allDistributorsHourly:
           allDistributorsHourly,
     );
 
     await Printing.layoutPdf(
-      name: _createFileName(),
+      name:
+          _createFileName(),
       format:
           PdfPageFormat.a4.landscape,
-      onLayout: (_) async => bytes,
+      onLayout:
+          (_) async => bytes,
     );
   }
+
+  // =========================================================
+  // SHARE
+  // =========================================================
 
   static Future<void> shareReport({
     required List<LoadRecord> records,
@@ -188,37 +243,54 @@ class ReportPdfService {
     DateTime? toDate,
     bool allDistributorsHourly = false,
   }) async {
-    final bytes = await buildPdf(
-      records: records,
-      distributors: distributors,
+    final bytes =
+        await buildPdf(
+      records:
+          records,
+      distributors:
+          distributors,
       selectedDistributorId:
           selectedDistributorId,
       selectedDateTime:
           selectedDateTime,
-      fromDate: fromDate,
-      toDate: toDate,
+      fromDate:
+          fromDate,
+      toDate:
+          toDate,
       allDistributorsHourly:
           allDistributorsHourly,
     );
 
     await Printing.sharePdf(
-      bytes: bytes,
-      filename: _createFileName(),
+      bytes:
+          bytes,
+      filename:
+          _createFileName(),
     );
   }
+
+  // =========================================================
+  // LOGO
+  // =========================================================
 
   static Future<Uint8List?>
       _loadLogoBytes() async {
     try {
-      final data = await rootBundle.load(
+      final data =
+          await rootBundle.load(
         'assets/images/company_logo.png',
       );
 
-      return data.buffer.asUint8List();
+      return data.buffer
+          .asUint8List();
     } catch (_) {
       return null;
     }
   }
+
+  // =========================================================
+  // HEADER
+  // =========================================================
 
   static pw.Widget _buildHeader(
     Uint8List? logoBytes,
@@ -227,17 +299,24 @@ class ReportPdfService {
       textDirection:
           pw.TextDirection.rtl,
       child: pw.Row(
+        crossAxisAlignment:
+            pw.CrossAxisAlignment.center,
         children: [
           pw.SizedBox(
-            width: 120,
-            child: pw.Column(
+            width:
+                130,
+            child:
+                pw.Column(
               crossAxisAlignment:
-                  pw.CrossAxisAlignment.start,
+                  pw.CrossAxisAlignment
+                      .start,
               children: [
                 pw.Text(
                   'شركة جنوب القاهرة لتوزيع الكهرباء',
-                  style: pw.TextStyle(
-                    fontSize: 8,
+                  style:
+                      pw.TextStyle(
+                    fontSize:
+                        8,
                     fontWeight:
                         pw.FontWeight.bold,
                   ),
@@ -246,49 +325,71 @@ class ReportPdfService {
                   'قطاع التحكمات والوقاية',
                   style:
                       const pw.TextStyle(
-                    fontSize: 7,
+                    fontSize:
+                        7,
                   ),
                 ),
                 pw.Text(
                   'تحكم 26 يوليو',
                   style:
                       const pw.TextStyle(
-                    fontSize: 7,
+                    fontSize:
+                        7,
                   ),
                 ),
               ],
             ),
           ),
+
           pw.Expanded(
-            child: pw.Text(
+            child:
+                pw.Text(
               'أحمال خلايا الموزعات',
               textAlign:
                   pw.TextAlign.center,
-              style: pw.TextStyle(
-                fontSize: 17,
+              style:
+                  pw.TextStyle(
+                fontSize:
+                    17,
                 fontWeight:
                     pw.FontWeight.bold,
               ),
             ),
           ),
+
           pw.SizedBox(
-            width: 120,
-            child: logoBytes == null
-                ? pw.SizedBox()
-                : pw.Image(
-                    pw.MemoryImage(
-                      logoBytes,
-                    ),
-                    width: 72,
-                    height: 48,
-                    fit:
-                        pw.BoxFit.contain,
-                  ),
+            width:
+                130,
+            child:
+                logoBytes == null
+                    ? pw.SizedBox()
+                    : pw.Align(
+                        alignment:
+                            pw.Alignment
+                                .centerLeft,
+                        child:
+                            pw.Image(
+                          pw.MemoryImage(
+                            logoBytes,
+                          ),
+                          width:
+                              72,
+                          height:
+                              48,
+                          fit:
+                              pw.BoxFit
+                                  .contain,
+                        ),
+                      ),
           ),
         ],
       ),
     );
   }
+
+  // =========================================================
+  // FOOTER
+  // =========================================================
 
   static pw.Widget _buildFooter() {
     return pw.Directionality(
@@ -307,7 +408,9 @@ class ReportPdfService {
             _signature(
               'اسم مدخل البيانات',
             ),
-            _signature('إعداد'),
+            _signature(
+              'إعداد',
+            ),
             _signature(
               'مدير التشغيل',
             ),
@@ -329,19 +432,25 @@ class ReportPdfService {
           title,
           style:
               const pw.TextStyle(
-            fontSize: 6.5,
+            fontSize:
+                6.5,
           ),
         ),
         pw.Text(
           '............................',
           style:
               const pw.TextStyle(
-            fontSize: 6,
+            fontSize:
+                6,
           ),
         ),
       ],
     );
   }
+
+  // =========================================================
+  // PERIOD
+  // =========================================================
 
   static pw.Widget _buildPeriodRow({
     required DateTime day,
@@ -352,7 +461,8 @@ class ReportPdfService {
           pw.TextDirection.rtl,
       child: pw.Container(
         padding:
-            const pw.EdgeInsets.symmetric(
+            const pw.EdgeInsets
+                .symmetric(
           vertical: 5,
         ),
         child: pw.Row(
@@ -364,13 +474,21 @@ class ReportPdfService {
               style:
                   _periodTextStyle(),
             ),
-            pw.SizedBox(width: 28),
+
+            pw.SizedBox(
+              width: 28,
+            ),
+
             pw.Text(
               'التاريخ: ${_formatDate(day)}',
               style:
                   _periodTextStyle(),
             ),
-            pw.SizedBox(width: 28),
+
+            pw.SizedBox(
+              width: 28,
+            ),
+
             pw.Text(
               'الفترة: ${_formatHourRange(hour)}',
               style:
@@ -385,53 +503,65 @@ class ReportPdfService {
   static pw.TextStyle
       _periodTextStyle() {
     return pw.TextStyle(
-      fontSize: 8,
+      fontSize:
+          8,
       fontWeight:
           pw.FontWeight.bold,
     );
   }
 
+  // =========================================================
+  // ALL DISTRIBUTORS TABLES
+  // =========================================================
+
   static List<pw.Widget>
       _buildDistributorTables({
     required DateTime day,
     required int hour,
-    required List<LoadRecord> records,
+    required _ReportPdfIndex index,
     required List<Distributor>
         distributors,
   }) {
-    final result = <pw.Widget>[];
+    final result =
+        <pw.Widget>[];
 
-    for (var index = 0;
-        index < distributors.length;
-        index += 6) {
+    for (var start = 0;
+        start < distributors.length;
+        start += 6) {
       final end =
-          index + 6 <
+          (start + 6) <
                   distributors.length
-              ? index + 6
+              ? start + 6
               : distributors.length;
 
       result.add(
         _buildDistributorGrid(
-          day: day,
-          hour: hour,
-          records: records,
+          day:
+              day,
+          hour:
+              hour,
+          index:
+              index,
           distributors:
               distributors.sublist(
-            index,
+            start,
             end,
           ),
         ),
       );
 
       result.add(
-        pw.SizedBox(height: 8),
+        pw.SizedBox(
+          height: 8,
+        ),
       );
     }
 
     if (distributors.isEmpty) {
       result.add(
         pw.Center(
-          child: pw.Text(
+          child:
+              pw.Text(
             'لا توجد موزعات نشطة.',
           ),
         ),
@@ -441,20 +571,28 @@ class ReportPdfService {
     return result;
   }
 
+  // =========================================================
+  // DISTRIBUTOR GRID
+  // =========================================================
+
   static pw.Widget
       _buildDistributorGrid({
     required DateTime day,
     required int hour,
-    required List<LoadRecord> records,
+    required _ReportPdfIndex index,
     required List<Distributor>
         distributors,
   }) {
-    final rows = <pw.TableRow>[];
+    final rows =
+        <pw.TableRow>[];
 
     rows.add(
       pw.TableRow(
         children: [
-          _tableHeader('الخلايا'),
+          _tableHeader(
+            'الخلايا',
+          ),
+
           for (final distributor
               in distributors) ...[
             _tableHeader(
@@ -480,9 +618,12 @@ class ReportPdfService {
           _tableHeader(
             'رقم الخلية',
           ),
+
           for (final _
               in distributors) ...[
-            _tableHeader('الحمل'),
+            _tableHeader(
+              'الحمل',
+            ),
             _tableHeader(
               'أقل حمل',
             ),
@@ -501,34 +642,38 @@ class ReportPdfService {
           children: [
             _tableValue(
               '$cellNumber',
-              bold: true,
+              bold:
+                  true,
             ),
+
             for (final distributor
                 in distributors) ...[
               _tableValue(
-                _currentCellValue(
-                  records: records,
+                index.currentValue(
                   distributorId:
                       distributor.id,
-                  day: day,
-                  hour: hour,
+                  day:
+                      day,
+                  hour:
+                      hour,
                   cellNumber:
                       cellNumber,
                 ),
-                red: true,
+                red:
+                    true,
               ),
+
               _tableValue(
-                _minimumCellValue(
-                  records: records,
+                index.minimumValue(
                   distributorId:
                       distributor.id,
                   cellNumber:
                       cellNumber,
                 ),
               ),
+
               _tableValue(
-                _maximumCellValue(
-                  records: records,
+                index.maximumValue(
                   distributorId:
                       distributor.id,
                   cellNumber:
@@ -547,22 +692,28 @@ class ReportPdfService {
       child: pw.Table(
         border:
             pw.TableBorder.all(
-          width: .45,
+          width:
+              .45,
         ),
-        columnWidths: {
-          0: const pw.FlexColumnWidth(
+        columnWidths:
+            <int, pw.TableColumnWidth>{
+          0:
+              const pw.FlexColumnWidth(
             1.05,
           ),
+
           for (var index = 0;
               index <
-                  distributors.length * 3;
+                  distributors.length *
+                      3;
               index++)
             index + 1:
                 const pw.FlexColumnWidth(
               .85,
             ),
         },
-        children: rows,
+        children:
+            rows,
       ),
     );
   }
@@ -572,7 +723,8 @@ class ReportPdfService {
   ) {
     return pw.Padding(
       padding:
-          const pw.EdgeInsets.symmetric(
+          const pw.EdgeInsets
+              .symmetric(
         vertical: 3,
         horizontal: 1,
       ),
@@ -580,8 +732,10 @@ class ReportPdfService {
         text,
         textAlign:
             pw.TextAlign.center,
-        style: pw.TextStyle(
-          fontSize: 5.5,
+        style:
+            pw.TextStyle(
+          fontSize:
+              5.5,
           fontWeight:
               pw.FontWeight.bold,
         ),
@@ -596,7 +750,8 @@ class ReportPdfService {
   }) {
     return pw.Padding(
       padding:
-          const pw.EdgeInsets.symmetric(
+          const pw.EdgeInsets
+              .symmetric(
         vertical: 2.5,
         horizontal: 1,
       ),
@@ -604,313 +759,442 @@ class ReportPdfService {
         text,
         textAlign:
             pw.TextAlign.center,
-        style: pw.TextStyle(
-          fontSize: 5.6,
-          fontWeight: bold
-              ? pw.FontWeight.bold
-              : pw.FontWeight.normal,
-          color: red
-              ? PdfColors.red700
-              : PdfColors.black,
+        style:
+            pw.TextStyle(
+          fontSize:
+              5.6,
+          fontWeight:
+              bold
+                  ? pw.FontWeight.bold
+                  : pw.FontWeight.normal,
+          color:
+              red
+                  ? PdfColors.red700
+                  : PdfColors.black,
         ),
       ),
     );
   }
 
-  static String _currentCellValue({
-    required List<LoadRecord> records,
-    required String distributorId,
-    required DateTime day,
-    required int hour,
-    required int cellNumber,
-  }) {
-    LoadRecord? latest;
-
-    for (final record in records) {
-      if (record.distributorId !=
-              distributorId ||
-          record.recordedAt.year !=
-              day.year ||
-          record.recordedAt.month !=
-              day.month ||
-          record.recordedAt.day !=
-              day.day ||
-          record.recordedAt.hour !=
-              hour) {
-        continue;
-      }
-
-      if (latest == null ||
-          record.recordedAt
-              .isAfter(
-            latest.recordedAt,
-          )) {
-        latest = record;
-      }
-    }
-
-    if (latest == null) {
-      return '—';
-    }
-
-    return (latest.cellValues[cellNumber] ??
-            0)
-        .toStringAsFixed(1);
-  }
-
-  static String _minimumCellValue({
-    required List<LoadRecord> records,
-    required String distributorId,
-    required int cellNumber,
-  }) {
-    double? minimum;
-
-    for (final record in records) {
-      if (record.distributorId !=
-          distributorId) {
-        continue;
-      }
-
-      final value =
-          record.cellValues[cellNumber];
-
-      if (value == null) {
-        continue;
-      }
-
-      if (minimum == null ||
-          value < minimum) {
-        minimum = value;
-      }
-    }
-
-    return minimum == null
-        ? '—'
-        : minimum.toStringAsFixed(1);
-  }
-
-  static String _maximumCellValue({
-    required List<LoadRecord> records,
-    required String distributorId,
-    required int cellNumber,
-  }) {
-    double? maximum;
-
-    for (final record in records) {
-      if (record.distributorId !=
-          distributorId) {
-        continue;
-      }
-
-      final value =
-          record.cellValues[cellNumber];
-
-      if (value == null) {
-        continue;
-      }
-
-      if (maximum == null ||
-          value > maximum) {
-        maximum = value;
-      }
-    }
-
-    return maximum == null
-        ? '—'
-        : maximum.toStringAsFixed(1);
-  }
+  // =========================================================
+  // SINGLE DISTRIBUTOR
+  // =========================================================
 
   static List<pw.Widget>
       _buildSingleDistributor({
     required List<LoadRecord> records,
     required Distributor? distributor,
+    required _ReportPdfIndex index,
     required DateTime? fromDate,
     required DateTime? toDate,
   }) {
-    final sortedRecords =
-        List<LoadRecord>.from(records)
+    final sorted =
+        List<LoadRecord>.from(
+      records,
+    )
           ..sort(
-            (a, b) => b.recordedAt
-                .compareTo(
+            (a, b) =>
+                b.recordedAt.compareTo(
               a.recordedAt,
             ),
           );
 
-    final result = <pw.Widget>[
+    final widgets =
+        <pw.Widget>[];
+
+    widgets.add(
       pw.Directionality(
         textDirection:
             pw.TextDirection.rtl,
-        child: pw.Container(
-          padding:
-              const pw.EdgeInsets.all(6),
-          decoration: pw.BoxDecoration(
-            border:
-                pw.Border.all(
-              width: .6,
+        child: pw.Column(
+          crossAxisAlignment:
+              pw.CrossAxisAlignment
+                  .stretch,
+          children: [
+            pw.Text(
+              distributor?.name ??
+                  (sorted.isEmpty
+                      ? 'الموزع'
+                      : sorted.first
+                          .distributorName),
+              textAlign:
+                  pw.TextAlign.center,
+              style:
+                  pw.TextStyle(
+                fontSize:
+                    15,
+                fontWeight:
+                    pw.FontWeight.bold,
+              ),
             ),
-          ),
-          child: pw.Column(
-            children: [
-              pw.Text(
-                distributor?.name ??
-                    (sortedRecords
-                            .isEmpty
-                        ? 'الموزع'
-                        : sortedRecords
-                            .first
-                            .distributorName),
-                style: pw.TextStyle(
-                  fontSize: 13,
-                  fontWeight:
-                      pw.FontWeight.bold,
-                ),
+
+            pw.SizedBox(
+              height: 4,
+            ),
+
+            pw.Text(
+              'نوع الموزع: '
+              '${_distributorType(distributor)}',
+              textAlign:
+                  pw.TextAlign.center,
+              style:
+                  const pw.TextStyle(
+                fontSize:
+                    8,
+              ),
+            ),
+
+            if (fromDate != null &&
+                toDate != null) ...[
+              pw.SizedBox(
+                height: 4,
               ),
               pw.Text(
-                'نوع الموزع: '
-                '${_distributorType(distributor)}',
+                'الفترة: '
+                '${_formatDate(fromDate)}'
+                ' إلى '
+                '${_formatDate(toDate)}',
+                textAlign:
+                    pw.TextAlign.center,
                 style:
                     const pw.TextStyle(
-                  fontSize: 8,
+                  fontSize:
+                      8,
                 ),
               ),
-              if (fromDate != null &&
-                  toDate != null)
-                pw.Text(
-                  'من ${_formatDate(fromDate)} '
-                  'إلى ${_formatDate(toDate)}',
-                  style:
-                      const pw.TextStyle(
-                    fontSize: 8,
-                  ),
-                ),
             ],
-          ),
+          ],
         ),
       ),
-      pw.SizedBox(height: 8),
-    ];
+    );
 
-    if (sortedRecords.isEmpty) {
-      result.add(
+    widgets.add(
+      pw.SizedBox(
+        height: 10,
+      ),
+    );
+
+    if (sorted.isEmpty) {
+      widgets.add(
         pw.Center(
-          child: pw.Text(
-            'لا توجد سجلات مطابقة للبحث.',
+          child:
+              pw.Text(
+            'لا توجد سجلات مطابقة.',
           ),
         ),
       );
-      return result;
+
+      return widgets;
     }
 
-    var maximum =
-        sortedRecords.first;
-    var minimum =
-        sortedRecords.first;
+    final maximum =
+        _maximumRecord(
+      sorted,
+    );
 
-    for (final record
-        in sortedRecords) {
-      if (record.totalLoad >
-          maximum.totalLoad) {
-        maximum = record;
-      }
+    final minimum =
+        _minimumRecord(
+      sorted,
+    );
 
-      if (record.totalLoad <
-          minimum.totalLoad) {
-        minimum = record;
-      }
-    }
-
-    result.add(
+    widgets.add(
       pw.Directionality(
         textDirection:
             pw.TextDirection.rtl,
-        child: pw.Table(
-          border:
-              pw.TableBorder.all(
-            width: .5,
-          ),
+        child: pw.Row(
+          mainAxisAlignment:
+              pw.MainAxisAlignment
+                  .spaceEvenly,
           children: [
-            pw.TableRow(
-              children: [
-                _tableHeader(
-                  'أقصى حمل',
-                ),
-                _tableHeader(
-                  '${maximum.totalLoad.toStringAsFixed(2)} A\n'
-                  '${_formatDateTime(maximum.recordedAt)}',
-                ),
-                _tableHeader(
-                  'أقل حمل',
-                ),
-                _tableHeader(
-                  '${minimum.totalLoad.toStringAsFixed(2)} A\n'
-                  '${_formatDateTime(minimum.recordedAt)}',
-                ),
-              ],
+            pw.Text(
+              'أقصى حمل: '
+              '${maximum?.totalLoad.toStringAsFixed(2) ?? '—'} أمبير',
+              style:
+                  pw.TextStyle(
+                fontSize:
+                    8,
+                fontWeight:
+                    pw.FontWeight.bold,
+              ),
+            ),
+
+            pw.Text(
+              'أقل حمل: '
+              '${minimum?.totalLoad.toStringAsFixed(2) ?? '—'} أمبير',
+              style:
+                  pw.TextStyle(
+                fontSize:
+                    8,
+                fontWeight:
+                    pw.FontWeight.bold,
+              ),
             ),
           ],
         ),
       ),
     );
 
-    result.add(
-      pw.SizedBox(height: 8),
+    widgets.add(
+      pw.SizedBox(
+        height: 10,
+      ),
     );
 
-    for (final record
-        in sortedRecords) {
-      result.add(
-        pw.Directionality(
-          textDirection:
-              pw.TextDirection.rtl,
-          child: pw.Column(
-            children: [
-              pw.Text(
-                '${_formatDateTime(record.recordedAt)} — '
-                'إجمالي '
-                '${record.totalLoad.toStringAsFixed(2)} A',
-                style: pw.TextStyle(
-                  fontSize: 8,
-                  fontWeight:
-                      pw.FontWeight.bold,
+    final distributorId =
+        distributor?.id ??
+        sorted.first.distributorId;
+
+    widgets.add(
+      pw.Directionality(
+        textDirection:
+            pw.TextDirection.rtl,
+        child: pw.Table(
+          border:
+              pw.TableBorder.all(
+            width:
+                .5,
+          ),
+          children: [
+            pw.TableRow(
+              children: [
+                _tableHeader(
+                  'الخلية',
                 ),
-              ),
-              pw.Table(
-                border:
-                    pw.TableBorder.all(
-                  width: .4,
+                _tableHeader(
+                  'أقل حمل',
                 ),
+                _tableHeader(
+                  'أقصى حمل',
+                ),
+              ],
+            ),
+
+            for (final cell
+                in cellNumbers)
+              pw.TableRow(
                 children: [
-                  pw.TableRow(
-                    children: cellNumbers
-                        .map(
-                          (cell) =>
-                              _tableHeader(
-                            'خ $cell',
-                          ),
-                        )
-                        .toList(),
+                  _tableValue(
+                    '$cell',
+                    bold:
+                        true,
                   ),
-                  pw.TableRow(
-                    children: cellNumbers
-                        .map(
-                          (cell) =>
-                              _tableValue(
-                            (record.cellValues[
-                                        cell] ??
-                                    0)
-                                .toStringAsFixed(
-                              1,
-                            ),
-                            red: true,
-                          ),
-                        )
-                        .toList(),
+                  _tableValue(
+                    index.minimumValue(
+                      distributorId:
+                          distributorId,
+                      cellNumber:
+                          cell,
+                    ),
+                  ),
+                  _tableValue(
+                    index.maximumValue(
+                      distributorId:
+                          distributorId,
+                      cellNumber:
+                          cell,
+                    ),
                   ),
                 ],
               ),
-              pw.SizedBox(height: 7),
-            ],
+          ],
+        ),
+      ),
+    );
+
+    widgets.add(
+      pw.SizedBox(
+        height: 12,
+      ),
+    );
+
+    widgets.add(
+      pw.Text(
+        'تفاصيل التسجيلات',
+        textAlign:
+            pw.TextAlign.center,
+        style:
+            pw.TextStyle(
+          fontSize:
+              10,
+          fontWeight:
+              pw.FontWeight.bold,
+        ),
+      ),
+    );
+
+    widgets.add(
+      pw.SizedBox(
+        height: 6,
+      ),
+    );
+
+    widgets.add(
+      pw.Directionality(
+        textDirection:
+            pw.TextDirection.rtl,
+        child: pw.Table(
+          border:
+              pw.TableBorder.all(
+            width:
+                .4,
           ),
+          children: [
+            pw.TableRow(
+              children: [
+                _tableHeader(
+                  'التاريخ',
+                ),
+                _tableHeader(
+                  'الوقت',
+                ),
+                _tableHeader(
+                  'مدخل البيانات',
+                ),
+                _tableHeader(
+                  'إجمالي الحمل',
+                ),
+
+                for (final cell
+                    in cellNumbers)
+                  _tableHeader(
+                    '$cell',
+                  ),
+              ],
+            ),
+
+            for (final record
+                in sorted)
+              pw.TableRow(
+                children: [
+                  _tableValue(
+                    _formatDate(
+                      record.recordedAt,
+                    ),
+                  ),
+
+                  _tableValue(
+                    DateFormat(
+                      'HH:mm',
+                    ).format(
+                      record.recordedAt,
+                    ),
+                  ),
+
+                  _tableValue(
+                    record.operatorName,
+                  ),
+
+                  _tableValue(
+                    record.totalLoad
+                        .toStringAsFixed(
+                      1,
+                    ),
+                  ),
+
+                  for (final cell
+                      in cellNumbers)
+                    _tableValue(
+                      (record.cellValues[
+                                  cell] ??
+                              0)
+                          .toStringAsFixed(
+                        1,
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+
+    return widgets;
+  }
+
+  // =========================================================
+  // MAX / MIN RECORD
+  // =========================================================
+
+  static LoadRecord? _maximumRecord(
+    List<LoadRecord> records,
+  ) {
+    if (records.isEmpty) {
+      return null;
+    }
+
+    var result =
+        records.first;
+
+    for (final record
+        in records.skip(1)) {
+      if (record.totalLoad >
+          result.totalLoad) {
+        result =
+            record;
+      }
+    }
+
+    return result;
+  }
+
+  static LoadRecord? _minimumRecord(
+    List<LoadRecord> records,
+  ) {
+    if (records.isEmpty) {
+      return null;
+    }
+
+    var result =
+        records.first;
+
+    for (final record
+        in records.skip(1)) {
+      if (record.totalLoad <
+          result.totalLoad) {
+        result =
+            record;
+      }
+    }
+
+    return result;
+  }
+
+  // =========================================================
+  // DAYS
+  // =========================================================
+
+  static List<DateTime> _daysBetween(
+    DateTime from,
+    DateTime to,
+  ) {
+    final result =
+        <DateTime>[];
+
+    var current =
+        DateTime(
+      from.year,
+      from.month,
+      from.day,
+    );
+
+    final end =
+        DateTime(
+      to.year,
+      to.month,
+      to.day,
+    );
+
+    while (!current.isAfter(
+      end,
+    )) {
+      result.add(
+        current,
+      );
+
+      current =
+          current.add(
+        const Duration(
+          days: 1,
         ),
       );
     }
@@ -918,40 +1202,16 @@ class ReportPdfService {
     return result;
   }
 
-  static List<DateTime> _daysBetween(
-    DateTime from,
-    DateTime to,
-  ) {
-    final result = <DateTime>[];
+  // =========================================================
+  // DISTRIBUTOR
+  // =========================================================
 
-    var current = DateTime(
-      from.year,
-      from.month,
-      from.day,
-    );
-
-    final end = DateTime(
-      to.year,
-      to.month,
-      to.day,
-    );
-
-    while (!current.isAfter(end)) {
-      result.add(current);
-      current = current.add(
-        const Duration(days: 1),
-      );
-    }
-
-    return result;
-  }
-
-  static Distributor?
-      _findDistributor(
+  static Distributor? _findDistributor(
     List<Distributor> distributors,
     String? id,
   ) {
-    if (id == null) {
+    if (id == null ||
+        id.trim().isEmpty) {
       return null;
     }
 
@@ -969,57 +1229,265 @@ class ReportPdfService {
     Distributor? distributor,
   ) {
     final type =
-        distributor?.type.trim() ?? '';
+        distributor?.type.trim() ??
+            '';
 
     return type.isEmpty
         ? 'غير محدد'
         : type;
   }
 
-  static String _dayName(
-    DateTime value,
-  ) {
-    const names = <int, String>{
-      1: 'الاثنين',
-      2: 'الثلاثاء',
-      3: 'الأربعاء',
-      4: 'الخميس',
-      5: 'الجمعة',
-      6: 'السبت',
-      7: 'الأحد',
-    };
-
-    return names[value.weekday] ?? '';
-  }
+  // =========================================================
+  // FORMAT
+  // =========================================================
 
   static String _formatDate(
     DateTime value,
   ) {
     return DateFormat(
       'yyyy/MM/dd',
-    ).format(value);
-  }
-
-  static String _formatDateTime(
-    DateTime value,
-  ) {
-    return DateFormat(
-      'yyyy/MM/dd HH:mm',
-    ).format(value);
+    ).format(
+      value,
+    );
   }
 
   static String _formatHourRange(
     int hour,
   ) {
     final value =
-        hour.toString().padLeft(2, '0');
+        hour
+            .toString()
+            .padLeft(
+              2,
+              '0',
+            );
 
-    return 'الساعة $hour '
-        '($value:00 - $value:59)';
+    return '$value:00 - $value:59';
   }
+
+  static String _dayName(
+    DateTime value,
+  ) {
+    const names =
+        <int, String>{
+      DateTime.monday:
+          'الاثنين',
+      DateTime.tuesday:
+          'الثلاثاء',
+      DateTime.wednesday:
+          'الأربعاء',
+      DateTime.thursday:
+          'الخميس',
+      DateTime.friday:
+          'الجمعة',
+      DateTime.saturday:
+          'السبت',
+      DateTime.sunday:
+          'الأحد',
+    };
+
+    return names[value.weekday] ??
+        '';
+  }
+
+  // =========================================================
+  // FILE NAME
+  // =========================================================
 
   static String _createFileName() {
     return 'distribution_load_report_'
-        '${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.pdf';
+        '${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}'
+        '.pdf';
   }
+}
+
+// ===========================================================
+// FAST PDF INDEX
+// ===========================================================
+
+class _ReportPdfIndex {
+  _ReportPdfIndex({
+    required this.latest,
+    required this.ranges,
+  });
+
+  final Map<String, LoadRecord>
+      latest;
+
+  final Map<String, _PdfCellRange>
+      ranges;
+
+  factory _ReportPdfIndex.build(
+    List<LoadRecord> records,
+  ) {
+    final latest =
+        <String, LoadRecord>{};
+
+    final mutableRanges =
+        <String, _MutablePdfCellRange>{};
+
+    /*
+     * دورة واحدة فقط على records.
+     */
+    for (final record
+        in records) {
+      final date =
+          record.recordedAt;
+
+      final latestKey =
+          '${record.distributorId}|'
+          '${date.year}|'
+          '${date.month}|'
+          '${date.day}|'
+          '${date.hour}';
+
+      final old =
+          latest[latestKey];
+
+      if (old == null ||
+          record.recordedAt.isAfter(
+            old.recordedAt,
+          )) {
+        latest[latestKey] =
+            record;
+      }
+
+      for (final entry
+          in record.cellValues.entries) {
+        final rangeKey =
+            '${record.distributorId}|'
+            '${entry.key}';
+
+        final range =
+            mutableRanges
+                .putIfAbsent(
+          rangeKey,
+          () =>
+              _MutablePdfCellRange(),
+        );
+
+        range.add(
+          entry.value,
+        );
+      }
+    }
+
+    final ranges =
+        <String, _PdfCellRange>{};
+
+    for (final entry
+        in mutableRanges.entries) {
+      ranges[entry.key] =
+          _PdfCellRange(
+        minimum:
+            entry.value.minimum,
+        maximum:
+            entry.value.maximum,
+      );
+    }
+
+    return _ReportPdfIndex(
+      latest:
+          latest,
+      ranges:
+          ranges,
+    );
+  }
+
+  String currentValue({
+    required String distributorId,
+    required DateTime day,
+    required int hour,
+    required int cellNumber,
+  }) {
+    final key =
+        '$distributorId|'
+        '${day.year}|'
+        '${day.month}|'
+        '${day.day}|'
+        '$hour';
+
+    final record =
+        latest[key];
+
+    if (record == null) {
+      return '—';
+    }
+
+    return (record.cellValues[
+                cellNumber] ??
+            0)
+        .toStringAsFixed(
+      1,
+    );
+  }
+
+  String minimumValue({
+    required String distributorId,
+    required int cellNumber,
+  }) {
+    final range =
+        ranges[
+            '$distributorId|$cellNumber'];
+
+    if (range?.minimum ==
+        null) {
+      return '—';
+    }
+
+    return range!.minimum!
+        .toStringAsFixed(
+      1,
+    );
+  }
+
+  String maximumValue({
+    required String distributorId,
+    required int cellNumber,
+  }) {
+    final range =
+        ranges[
+            '$distributorId|$cellNumber'];
+
+    if (range?.maximum ==
+        null) {
+      return '—';
+    }
+
+    return range!.maximum!
+        .toStringAsFixed(
+      1,
+    );
+  }
+}
+
+class _MutablePdfCellRange {
+  double? minimum;
+  double? maximum;
+
+  void add(
+    double value,
+  ) {
+    if (minimum == null ||
+        value < minimum!) {
+      minimum =
+          value;
+    }
+
+    if (maximum == null ||
+        value > maximum!) {
+      maximum =
+          value;
+    }
+  }
+}
+
+class _PdfCellRange {
+  const _PdfCellRange({
+    required this.minimum,
+    required this.maximum,
+  });
+
+  final double? minimum;
+  final double? maximum;
 }
