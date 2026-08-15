@@ -12,9 +12,6 @@ class AuditLogRepository {
   AuditLogRepository({
     FirebaseFirestore? firestore,
   }) {
-    /*
-     * Windows لا ينشئ FirebaseFirestore Native.
-     */
     if (!_windows) {
       _firestore =
           firestore ?? FirebaseFirestore.instance;
@@ -26,23 +23,14 @@ class AuditLogRepository {
   static const int _defaultLimit = 200;
   static const int _searchLimit = 500;
 
-  // =========================================================
-  // PLATFORM
-  // =========================================================
-
   bool get _windows {
     return !kIsWeb &&
         defaultTargetPlatform ==
             TargetPlatform.windows;
   }
 
-  // =========================================================
-  // FIRESTORE NATIVE
-  // =========================================================
-
   FirebaseFirestore get _nativeFirestore {
-    final firestore =
-        _firestore;
+    final firestore = _firestore;
 
     if (firestore == null) {
       throw StateError(
@@ -61,21 +49,13 @@ class AuditLogRepository {
   }
 
   // =========================================================
-  // WATCH LATEST
+  // WATCH
   // =========================================================
 
   Stream<List<AuditLog>> watchAll() {
     if (_windows) {
-      /*
-       * Windows لا يدعم snapshots
-       * من Firestore Native في نسختنا.
-       *
-       * تحديث خفيف كل 30 ثانية.
-       */
       return Stream<List<AuditLog>>.periodic(
-        const Duration(
-          seconds: 30,
-        ),
+        const Duration(seconds: 30),
       ).asyncMap(
         (_) => latest(),
       ).startWith(
@@ -88,20 +68,16 @@ class AuditLogRepository {
           'createdAt',
           descending: true,
         )
-        .limit(
-          _defaultLimit,
-        )
+        .limit(_defaultLimit)
         .snapshots()
         .map(
-          (snapshot) {
-            return snapshot.docs
-                .map(
-                  AuditLog.fromFirestore,
-                )
-                .toList(
-                  growable: false,
-                );
-          },
+          (snapshot) => snapshot.docs
+              .map(
+                AuditLog.fromFirestore,
+              )
+              .toList(
+                growable: false,
+              ),
         );
   }
 
@@ -122,9 +98,7 @@ class AuditLogRepository {
               'createdAt',
               descending: true,
             )
-            .limit(
-              _defaultLimit,
-            )
+            .limit(_defaultLimit)
             .get();
 
     return snapshot.docs
@@ -156,28 +130,17 @@ class AuditLogRepository {
             '';
 
     if (_windows) {
-      /*
-       * التاريخ تتم تصفيته في Firestore نفسه.
-       *
-       * action و targetCode يتم تصفيتهما
-       * محليًا بعد تنزيل مجموعة محدودة فقط.
-       */
       final logs =
           await _queryWindows(
-        fromDate:
-            fromDate,
-        toDate:
-            toDate,
-        limit:
-            _searchLimit,
+        fromDate: fromDate,
+        toDate: toDate,
+        limit: _searchLimit,
       );
 
       return _filterLocal(
         logs,
-        action:
-            normalizedAction,
-        targetCode:
-            normalizedCode,
+        action: normalizedAction,
+        targetCode: normalizedCode,
       );
     }
 
@@ -211,25 +174,145 @@ class AuditLogRepository {
 
     final snapshot =
         await query
-            .limit(
-              _searchLimit,
-            )
+            .limit(_searchLimit)
             .get();
 
-    final logs =
-        snapshot.docs
-            .map(
-              AuditLog.fromFirestore,
-            )
-            .toList();
+    final logs = snapshot.docs
+        .map(
+          AuditLog.fromFirestore,
+        )
+        .toList();
 
     return _filterLocal(
       logs,
-      action:
-          normalizedAction,
-      targetCode:
-          normalizedCode,
+      action: normalizedAction,
+      targetCode: normalizedCode,
     );
+  }
+
+  // =========================================================
+  // UPDATE
+  // =========================================================
+
+  Future<void> updateLog({
+    required String id,
+    required String action,
+    required String targetCode,
+    required Map<String, dynamic> details,
+  }) async {
+    final documentId = id.trim();
+
+    if (documentId.isEmpty) {
+      throw ArgumentError(
+        'معرف سجل العملية غير صحيح.',
+      );
+    }
+
+    final data = <String, dynamic>{
+      'action': action.trim(),
+      'targetCode': targetCode.trim(),
+      'details': details,
+    };
+
+    if (_windows) {
+      await FirebaseRestService
+          .patchDocument(
+        collection: 'audit_logs',
+        documentId: documentId,
+        data: data,
+      );
+
+      return;
+    }
+
+    await _collection
+        .doc(documentId)
+        .update(data);
+  }
+
+  // =========================================================
+  // DELETE
+  // =========================================================
+
+  Future<void> deleteLog(
+    String id,
+  ) async {
+    final documentId = id.trim();
+
+    if (documentId.isEmpty) {
+      throw ArgumentError(
+        'معرف سجل العملية غير صحيح.',
+      );
+    }
+
+    if (_windows) {
+      var headers =
+          await FirebaseRestService
+              .getValidAuthHeaders();
+
+      var response =
+          await http
+              .delete(
+                FirebaseRestService
+                    .documentUrl(
+                  'audit_logs',
+                  documentId,
+                ),
+                headers: headers,
+              )
+              .timeout(
+                const Duration(
+                  seconds: 25,
+                ),
+              );
+
+      if (response.statusCode == 401) {
+        final refreshed =
+            await FirebaseRestService
+                .refreshIdToken();
+
+        if (!refreshed) {
+          throw StateError(
+            'انتهت جلسة تسجيل الدخول. '
+            'سجل الدخول مرة أخرى.',
+          );
+        }
+
+        headers =
+            await FirebaseRestService
+                .getValidAuthHeaders();
+
+        response =
+            await http
+                .delete(
+                  FirebaseRestService
+                      .documentUrl(
+                    'audit_logs',
+                    documentId,
+                  ),
+                  headers: headers,
+                )
+                .timeout(
+                  const Duration(
+                    seconds: 25,
+                  ),
+                );
+      }
+
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300) {
+        _throwWindowsError(
+          response,
+          writeOperation: true,
+        );
+      }
+
+      return;
+    }
+
+    await _collection
+        .doc(documentId)
+        .delete();
   }
 
   // =========================================================
@@ -295,35 +378,27 @@ class AuditLogRepository {
     Map<String, dynamic>? where;
 
     if (filters.length == 1) {
-      where =
-          filters.first;
+      where = filters.first;
     } else if (filters.length > 1) {
-      where =
-          <String, dynamic>{
+      where = <String, dynamic>{
         'compositeFilter':
             <String, dynamic>{
-          'op':
-              'AND',
-          'filters':
-              filters,
+          'op': 'AND',
+          'filters': filters,
         },
       };
     }
 
     final structuredQuery =
         <String, dynamic>{
-      'from':
-          <Map<String, dynamic>>[
+      'from': <Map<String, dynamic>>[
         <String, dynamic>{
           'collectionId':
               'audit_logs',
         },
       ],
-
       if (where != null)
-        'where':
-            where,
-
+        'where': where,
       'orderBy':
           <Map<String, dynamic>>[
         <String, dynamic>{
@@ -336,25 +411,15 @@ class AuditLogRepository {
               'DESCENDING',
         },
       ],
-
-      'limit':
-          limit,
+      'limit': limit,
     };
 
-    final uri =
-        Uri.parse(
+    final uri = Uri.parse(
       'https://firestore.googleapis.com/v1/'
       'projects/${FirebaseRestService.projectId}/'
       'databases/(default)/documents:runQuery',
     );
 
-    /*
-     * نستخدم getValidAuthHeaders()
-     * بدل authHeaders القديم.
-     *
-     * كده التوكن يتجدد قبل الطلب
-     * عند الحاجة.
-     */
     var headers =
         await FirebaseRestService
             .getValidAuthHeaders();
@@ -363,10 +428,8 @@ class AuditLogRepository {
         await http
             .post(
               uri,
-              headers:
-                  headers,
-              body:
-                  jsonEncode(
+              headers: headers,
+              body: jsonEncode(
                 <String, dynamic>{
                   'structuredQuery':
                       structuredQuery,
@@ -379,13 +442,6 @@ class AuditLogRepository {
               ),
             );
 
-    /*
-     * حماية إضافية:
-     *
-     * لو التوكن انتهى بعد الفحص مباشرة
-     * ورجع Firestore 401،
-     * نعمل Refresh ونعيد الطلب مرة واحدة.
-     */
     if (response.statusCode == 401) {
       final refreshed =
           await FirebaseRestService
@@ -406,10 +462,8 @@ class AuditLogRepository {
           await http
               .post(
                 uri,
-                headers:
-                    headers,
-                body:
-                    jsonEncode(
+                headers: headers,
+                body: jsonEncode(
                   <String, dynamic>{
                     'structuredQuery':
                         structuredQuery,
@@ -423,20 +477,12 @@ class AuditLogRepository {
               );
     }
 
-    // =======================================================
-    // RESPONSE STATUS
-    // =======================================================
-
     if (response.statusCode < 200 ||
         response.statusCode >= 300) {
       _throwWindowsError(
         response,
       );
     }
-
-    // =======================================================
-    // DECODE
-    // =======================================================
 
     final decoded =
         jsonDecode(
@@ -499,10 +545,6 @@ class AuditLogRepository {
     return logs;
   }
 
-  // =========================================================
-  // LOCAL FILTER
-  // =========================================================
-
   List<AuditLog> _filterLocal(
     List<AuditLog> logs, {
     required String action,
@@ -539,10 +581,6 @@ class AuditLogRepository {
     return result;
   }
 
-  // =========================================================
-  // REST MODEL
-  // =========================================================
-
   AuditLog _fromRest(
     String id,
     Map<String, dynamic> data,
@@ -550,7 +588,7 @@ class AuditLogRepository {
     final rawDetails =
         data['details'];
 
-    Map<String, dynamic> details =
+    var details =
         <String, dynamic>{};
 
     if (rawDetails is Map) {
@@ -561,39 +599,27 @@ class AuditLogRepository {
     }
 
     return AuditLog(
-      id:
-          id,
-
+      id: id,
       action:
           (data['action'] ?? '')
               .toString(),
-
       performedByUid:
           (data['performedByUid'] ?? '')
               .toString(),
-
       targetUid:
           (data['targetUid'] ?? '')
               .toString(),
-
       targetCode:
           (data['targetCode'] ?? '')
               .toString(),
-
       createdAt:
           _parseDate(
                 data['createdAt'],
               ) ??
               DateTime.now(),
-
-      details:
-          details,
+      details: details,
     );
   }
-
-  // =========================================================
-  // DATE
-  // =========================================================
 
   DateTime? _parseDate(
     dynamic value,
@@ -615,13 +641,10 @@ class AuditLogRepository {
     return null;
   }
 
-  // =========================================================
-  // WINDOWS ERROR
-  // =========================================================
-
   void _throwWindowsError(
-    http.Response response,
-  ) {
+    http.Response response, {
+    bool writeOperation = false,
+  }) {
     switch (response.statusCode) {
       case 401:
         throw StateError(
@@ -631,7 +654,9 @@ class AuditLogRepository {
 
       case 403:
         throw StateError(
-          'لا توجد صلاحية لقراءة سجل العمليات.',
+          writeOperation
+              ? 'لا توجد صلاحية لتعديل أو حذف سجل العمليات.'
+              : 'لا توجد صلاحية لقراءة سجل العمليات.',
         );
 
       case 429:
@@ -652,8 +677,10 @@ class AuditLogRepository {
         break;
     }
 
-    String message =
-        'تعذر تحميل سجل العمليات.';
+    var message =
+        writeOperation
+            ? 'تعذر تعديل سجل العمليات.'
+            : 'تعذر تحميل سجل العمليات.';
 
     try {
       final decoded =
@@ -679,9 +706,7 @@ class AuditLogRepository {
           }
         }
       }
-    } catch (_) {
-      // نستخدم الرسالة الافتراضية.
-    }
+    } catch (_) {}
 
     throw StateError(
       '$message '
@@ -690,17 +715,12 @@ class AuditLogRepository {
   }
 }
 
-// ===========================================================
-// STREAM FIRST VALUE
-// ===========================================================
-
 extension _AuditStreamStart<T>
     on Stream<T> {
   Stream<T> startWith(
     Future<T> first,
   ) async* {
     yield await first;
-
     yield* this;
   }
 }
