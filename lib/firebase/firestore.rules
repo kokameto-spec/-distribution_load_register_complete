@@ -1,37 +1,130 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
-    function role() { return userDoc().data.role; }
-    function isManager() { return role() in ['manager', 'president']; }
-    function isPresident() { return role() == 'president'; }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      );
+    }
+
+    function role() {
+      return userDoc().data.role;
+    }
+
+    function isManager() {
+      return role() in [
+        'manager',
+        'president'
+      ];
+    }
+
+    function isPresident() {
+      return role() == 'president';
+    }
+
+    // =======================================================
+    // USERS
+    // =======================================================
 
     match /users/{userId} {
-      allow read: if signedIn() && (request.auth.uid == userId || isPresident());
-      allow create, update, delete: if signedIn() && isPresident();
+      allow read:
+        if signedIn() &&
+        (
+          request.auth.uid == userId ||
+          isPresident()
+        );
+
+      allow create, update, delete:
+        if signedIn() &&
+        isPresident();
     }
+
+    // =======================================================
+    // DISTRIBUTORS
+    // =======================================================
 
     match /distributors/{id} {
-      allow read: if signedIn();
-      allow create, update, delete: if signedIn() && isPresident();
+      allow read:
+        if signedIn();
+
+      allow create, update, delete:
+        if signedIn() &&
+        isPresident();
     }
+
+    // =======================================================
+    // LOAD RECORDS
+    // =======================================================
 
     match /load_records/{id} {
-      allow create: if signedIn();
-      allow read: if signedIn() && isManager();
-      allow update, delete: if signedIn() && isPresident();
+      allow create:
+        if signedIn();
+
+      allow read:
+        if signedIn() &&
+        isManager();
+
+      allow update, delete:
+        if signedIn() &&
+        isPresident();
     }
+
+    // =======================================================
+    // STATIONS
+    // =======================================================
 
     match /stations/{id} {
-      allow read: if signedIn() && isManager();
-      allow create, update, delete: if signedIn() && isPresident();
+      allow read:
+        if signedIn() &&
+        isManager();
+
+      allow create, update, delete:
+        if signedIn() &&
+        isPresident();
     }
 
+    // =======================================================
+    // SAVED REPORTS
+    // =======================================================
+
+    match /saved_reports/{id} {
+      allow read:
+        if signedIn() &&
+        isPresident();
+
+      allow create:
+        if signedIn() &&
+        isPresident();
+
+      allow update:
+        if signedIn() &&
+        isPresident();
+
+      allow delete:
+        if signedIn() &&
+        isPresident();
+    }
+
+    // =======================================================
+    // AUDIT LOGS
+    // =======================================================
+
     match /audit_logs/{id} {
-      allow create: if signedIn();
-      allow read: if signedIn() && isPresident();
-      allow update, delete: if false;
+      allow create:
+        if signedIn();
+
+      allow read:
+        if signedIn() &&
+        isPresident();
+
+      allow update, delete:
+        if false;
     }
   }
 }
