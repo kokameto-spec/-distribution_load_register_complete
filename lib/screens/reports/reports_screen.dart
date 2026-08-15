@@ -793,13 +793,21 @@ class _ReportScreenIndex {
 
     for (final record in records) {
       final d = record.recordedAt;
-      if (d.hour == hour) {
-        final key =
-            '${record.distributorId}|${d.year}|${d.month}|${d.day}';
-        final old = latest[key];
-        if (old == null || record.recordedAt.isAfter(old.recordedAt)) {
-          latest[key] = record;
-        }
+
+      /*
+       * نتائج "جميع الموزعات" وصلت بالفعل من البحث
+       * للساعة المطلوبة. لا نعيد مقارنة d.hour هنا،
+       * لأن اختلاف TimeZone في Windows قد يجعل السجل
+       * موجودًا ويظهر في min/max لكن current يظهر "لم يسجل".
+       */
+      final key =
+          '${record.distributorId}|${d.year}|${d.month}|${d.day}';
+
+      final old = latest[key];
+
+      if (old == null ||
+          record.recordedAt.isAfter(old.recordedAt)) {
+        latest[key] = record;
       }
 
       for (final entry in record.cellValues.entries) {
