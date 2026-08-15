@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/audit_log_controller.dart';
+import '../../controllers/auth_controller.dart';
 import '../../models/audit_log.dart';
+import '../../models/user_role.dart';
 
 class AuditLogsScreen extends StatefulWidget {
   const AuditLogsScreen({
@@ -17,46 +19,85 @@ class AuditLogsScreen extends StatefulWidget {
 
 class _AuditLogsScreenState
     extends State<AuditLogsScreen> {
-  final TextEditingController _codeController =
+  final TextEditingController
+      _codeController =
       TextEditingController();
 
   String? _selectedAction;
-
   DateTime? _fromDate;
   DateTime? _toDate;
 
-  static const Map<String, String> _actionNames =
+  static const Map<String, String>
+      _actionNames =
       <String, String>{
-    'create_user': 'إنشاء مستخدم',
-    'update_user': 'تعديل مستخدم',
+    'create_user':
+        'إنشاء مستخدم',
+    'update_user':
+        'تعديل مستخدم',
     'change_user_password':
         'تغيير كلمة المرور',
-    'activate_user': 'تفعيل مستخدم',
-    'deactivate_user': 'إيقاف مستخدم',
-    'delete_user': 'حذف مستخدم',
-    'save_report': 'حفظ تقرير',
-    'update_report': 'تعديل تقرير',
-    'delete_report': 'حذف تقرير',
-    'print_report': 'طباعة تقرير',
-    'share_report': 'مشاركة تقرير',
+    'activate_user':
+        'تفعيل مستخدم',
+    'deactivate_user':
+        'إيقاف مستخدم',
+    'delete_user':
+        'حذف مستخدم',
+    'save_report':
+        'حفظ تقرير',
+    'update_report':
+        'تعديل تقرير',
+    'delete_report':
+        'حذف تقرير',
+    'print_report':
+        'طباعة تقرير',
+    'share_report':
+        'مشاركة تقرير',
+    'export_excel':
+        'تصدير Excel',
+    'create_distributor':
+        'إنشاء موزع',
+    'update_distributor':
+        'تعديل موزع',
+    'delete_distributor':
+        'حذف موزع',
+    'activate_distributor':
+        'تفعيل موزع',
+    'deactivate_distributor':
+        'إيقاف موزع',
+    'create_station':
+        'إنشاء محطة',
+    'update_station':
+        'تعديل محطة',
+    'delete_station':
+        'حذف محطة',
+    'create_load_record':
+        'تسجيل أحمال',
+    'save_load_record':
+        'تسجيل أحمال',
+    'update_load_record':
+        'تعديل سجل أحمال',
+    'delete_load_record':
+        'حذف سجل أحمال',
+    'login':
+        'تسجيل دخول',
+    'logout':
+        'تسجيل خروج',
   };
-
-  // =========================================================
-  // INIT
-  // =========================================================
 
   @override
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback(
+    WidgetsBinding.instance
+        .addPostFrameCallback(
       (_) {
         if (!mounted) {
           return;
         }
 
         final controller =
-            context.read<AuditLogController>();
+            context.read<
+                AuditLogController>();
 
         if (!controller.isListening &&
             !controller.isSearchMode) {
@@ -66,27 +107,34 @@ class _AuditLogsScreenState
     );
   }
 
-  // =========================================================
-  // DISPOSE
-  // =========================================================
-
   @override
   void dispose() {
     _codeController.dispose();
-
     super.dispose();
+  }
+
+  bool get _isPresident {
+    final user =
+        context
+            .read<AuthController>()
+            .currentUser;
+
+    return user?.role ==
+        UserRole.president;
   }
 
   // =========================================================
   // DATES
   // =========================================================
 
-  Future<void> _selectFromDate() async {
+  Future<void>
+      _selectFromDate() async {
     final selected =
         await showDatePicker(
       context: context,
       initialDate:
-          _fromDate ?? DateTime.now(),
+          _fromDate ??
+          DateTime.now(),
       firstDate:
           DateTime(2020),
       lastDate:
@@ -99,7 +147,8 @@ class _AuditLogsScreenState
     }
 
     setState(() {
-      _fromDate = DateTime(
+      _fromDate =
+          DateTime(
         selected.year,
         selected.month,
         selected.day,
@@ -109,7 +158,8 @@ class _AuditLogsScreenState
           _fromDate!.isAfter(
             _toDate!,
           )) {
-        _toDate = DateTime(
+        _toDate =
+            DateTime(
           selected.year,
           selected.month,
           selected.day,
@@ -122,7 +172,8 @@ class _AuditLogsScreenState
     });
   }
 
-  Future<void> _selectToDate() async {
+  Future<void>
+      _selectToDate() async {
     final selected =
         await showDatePicker(
       context: context,
@@ -143,7 +194,8 @@ class _AuditLogsScreenState
     }
 
     setState(() {
-      _toDate = DateTime(
+      _toDate =
+          DateTime(
         selected.year,
         selected.month,
         selected.day,
@@ -165,8 +217,9 @@ class _AuditLogsScreenState
         _fromDate!.isAfter(
           _toDate!,
         )) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
         const SnackBar(
           content: Text(
             'تاريخ البداية يجب أن يسبق تاريخ النهاية.',
@@ -191,11 +244,8 @@ class _AuditLogsScreenState
         );
   }
 
-  // =========================================================
-  // CLEAR SEARCH
-  // =========================================================
-
-  Future<void> _clearSearch() async {
+  Future<void>
+      _clearSearch() async {
     _codeController.clear();
 
     setState(() {
@@ -209,13 +259,10 @@ class _AuditLogsScreenState
         .clearSearch();
   }
 
-  // =========================================================
-  // REFRESH
-  // =========================================================
-
   Future<void> _refresh() async {
     final controller =
-        context.read<AuditLogController>();
+        context.read<
+            AuditLogController>();
 
     if (controller.isSearchMode) {
       await controller.search(
@@ -231,6 +278,373 @@ class _AuditLogsScreenState
     } else {
       await controller.refresh();
     }
+  }
+
+  // =========================================================
+  // EDIT
+  // =========================================================
+
+  Future<void> _editLog(
+    AuditLog log,
+  ) async {
+    if (!_isPresident) {
+      return;
+    }
+
+    var action =
+        log.action;
+
+    final codeController =
+        TextEditingController(
+      text: log.targetCode,
+    );
+
+    final noteController =
+        TextEditingController(
+      text:
+          (log.details[
+                      'manualNote'] ??
+                  log.details[
+                      'note'] ??
+                  '')
+              .toString(),
+    );
+
+    final result =
+        await showDialog<
+            _AuditEditResult>(
+      context: context,
+      barrierDismissible:
+          false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder:
+              (
+            context,
+            setDialogState,
+          ) {
+            return AlertDialog(
+              title:
+                  const Text(
+                'تعديل سجل العملية',
+              ),
+              content:
+                  SizedBox(
+                width: 520,
+                child:
+                    SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize:
+                        MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<
+                          String>(
+                        value:
+                            _actionNames
+                                    .containsKey(
+                                      action,
+                                    )
+                                ? action
+                                : null,
+                        decoration:
+                            const InputDecoration(
+                          labelText:
+                              'نوع العملية',
+                          border:
+                              OutlineInputBorder(),
+                        ),
+                        items:
+                            _actionNames
+                                .entries
+                                .map(
+                          (
+                            entry,
+                          ) {
+                            return DropdownMenuItem<
+                                String>(
+                              value:
+                                  entry.key,
+                              child:
+                                  Text(
+                                entry.value,
+                              ),
+                            );
+                          },
+                        ).toList(),
+                        onChanged:
+                            (
+                          value,
+                        ) {
+                          if (value ==
+                              null) {
+                            return;
+                          }
+
+                          setDialogState(
+                            () {
+                              action =
+                                  value;
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(
+                        height: 14,
+                      ),
+                      TextField(
+                        controller:
+                            codeController,
+                        decoration:
+                            const InputDecoration(
+                          labelText:
+                              'كود المستخدم المستهدف',
+                          border:
+                              OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 14,
+                      ),
+                      TextField(
+                        controller:
+                            noteController,
+                        minLines: 3,
+                        maxLines: 6,
+                        decoration:
+                            const InputDecoration(
+                          labelText:
+                              'ملاحظة / وصف',
+                          border:
+                              OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 10,
+                      ),
+                      Text(
+                        'تاريخ العملية الأصلي لن يتم تغييره.',
+                        style:
+                            Theme.of(
+                          context,
+                        )
+                                .textTheme
+                                .bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      () {
+                    Navigator.pop(
+                      dialogContext,
+                    );
+                  },
+                  child:
+                      const Text(
+                    'إلغاء',
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed:
+                      () {
+                    Navigator.pop(
+                      dialogContext,
+                      _AuditEditResult(
+                        action:
+                            action,
+                        targetCode:
+                            codeController
+                                .text
+                                .trim(),
+                        note:
+                            noteController
+                                .text
+                                .trim(),
+                      ),
+                    );
+                  },
+                  icon:
+                      const Icon(
+                    Icons.save,
+                  ),
+                  label:
+                      const Text(
+                    'حفظ التعديل',
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    codeController.dispose();
+    noteController.dispose();
+
+    if (result == null ||
+        !mounted) {
+      return;
+    }
+
+    final details =
+        Map<String, dynamic>.from(
+      log.details,
+    );
+
+    details['manualNote'] =
+        result.note;
+
+    details['editedManually'] =
+        true;
+
+    details['editedAt'] =
+        DateTime.now()
+            .toIso8601String();
+
+    final success =
+        await context
+            .read<
+                AuditLogController>()
+            .updateLog(
+              original: log,
+              action:
+                  result.action,
+              targetCode:
+                  result.targetCode,
+              details:
+                  details,
+            );
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'تم تعديل سجل العملية.'
+              : context
+                      .read<
+                          AuditLogController>()
+                      .errorMessage ??
+                  'تعذر تعديل السجل.',
+        ),
+      ),
+    );
+  }
+
+  // =========================================================
+  // DELETE
+  // =========================================================
+
+  Future<void> _deleteLog(
+    AuditLog log,
+  ) async {
+    if (!_isPresident) {
+      return;
+    }
+
+    final confirmed =
+        await showDialog<bool>(
+      context: context,
+      builder: (
+        dialogContext,
+      ) {
+        return AlertDialog(
+          title:
+              const Text(
+            'حذف سجل العملية',
+          ),
+          content:
+              Text(
+            'هل تريد حذف العملية '
+            '«${log.actionName}» نهائيًا؟\n\n'
+            'لا يمكن التراجع بعد الحذف.',
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+              child:
+                  const Text(
+                'إلغاء',
+              ),
+            ),
+            FilledButton.icon(
+              style:
+                  FilledButton.styleFrom(
+                backgroundColor:
+                    Theme.of(
+                  context,
+                )
+                        .colorScheme
+                        .error,
+              ),
+              onPressed:
+                  () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+              icon:
+                  const Icon(
+                Icons.delete_forever,
+              ),
+              label:
+                  const Text(
+                'حذف نهائي',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true ||
+        !mounted) {
+      return;
+    }
+
+    final success =
+        await context
+            .read<
+                AuditLogController>()
+            .deleteLog(
+              log,
+            );
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'تم حذف سجل العملية.'
+              : context
+                      .read<
+                          AuditLogController>()
+                      .errorMessage ??
+                  'تعذر حذف السجل.',
+        ),
+      ),
+    );
   }
 
   // =========================================================
@@ -254,7 +668,7 @@ class _AuditLogsScreenState
     DateTime value,
   ) {
     return DateFormat(
-      'yyyy/MM/dd - hh:mm:ss a',
+      'yyyy/MM/dd - HH:mm:ss',
       'ar',
     ).format(value);
   }
@@ -268,7 +682,17 @@ class _AuditLogsScreenState
     BuildContext context,
   ) {
     final controller =
-        context.watch<AuditLogController>();
+        context.watch<
+            AuditLogController>();
+
+    final user =
+        context.watch<
+            AuthController>()
+            .currentUser;
+
+    final canManage =
+        user?.role ==
+        UserRole.president;
 
     return Scaffold(
       appBar: AppBar(
@@ -276,43 +700,25 @@ class _AuditLogsScreenState
             const Text(
           'سجل العمليات',
         ),
-        actions: [
-          if (controller.isSearchMode)
-            Padding(
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                horizontal: 8,
-              ),
-              child:
-                  const Center(
-                child: Chip(
-                  label:
-                      Text(
-                    'وضع البحث',
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
-
       body: RefreshIndicator(
         onRefresh:
             _refresh,
-        child: CustomScrollView(
+        child:
+            CustomScrollView(
           physics:
               const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
                 padding:
-                    const EdgeInsets
-                        .all(
+                    const EdgeInsets.all(
                   16,
                 ),
-                child: Center(
-                  child: ConstrainedBox(
+                child:
+                    Center(
+                  child:
+                      ConstrainedBox(
                     constraints:
                         const BoxConstraints(
                       maxWidth:
@@ -332,7 +738,8 @@ class _AuditLogsScreenState
               const SliverFillRemaining(
                 hasScrollBody:
                     false,
-                child: Center(
+                child:
+                    Center(
                   child:
                       CircularProgressIndicator(),
                 ),
@@ -341,39 +748,18 @@ class _AuditLogsScreenState
               const SliverFillRemaining(
                 hasScrollBody:
                     false,
-                child: Center(
-                  child: Padding(
-                    padding:
-                        EdgeInsets.all(
-                      24,
-                    ),
-                    child: Column(
-                      mainAxisAlignment:
-                          MainAxisAlignment
-                              .center,
-                      children: [
-                        Icon(
-                          Icons.history,
-                          size:
-                              72,
-                        ),
-                        SizedBox(
-                          height:
-                              16,
-                        ),
-                        Text(
-                          'لا توجد عمليات مسجلة.',
-                        ),
-                      ],
-                    ),
+                child:
+                    Center(
+                  child:
+                      Text(
+                    'لا توجد عمليات مسجلة.',
                   ),
                 ),
               )
             else
               SliverPadding(
                 padding:
-                    const EdgeInsets
-                        .fromLTRB(
+                    const EdgeInsets.fromLTRB(
                   16,
                   0,
                   16,
@@ -382,14 +768,14 @@ class _AuditLogsScreenState
                 sliver:
                     SliverList.separated(
                   itemCount:
-                      controller
-                          .logs
-                          .length,
+                      controller.logs.length,
                   separatorBuilder:
-                      (_, __) =>
+                      (
+                    _,
+                    __,
+                  ) =>
                           const SizedBox(
-                    height:
-                        10,
+                    height: 10,
                   ),
                   itemBuilder:
                       (
@@ -397,9 +783,8 @@ class _AuditLogsScreenState
                     index,
                   ) {
                     final log =
-                        controller
-                            .logs[
-                          index];
+                        controller.logs[
+                            index];
 
                     return Center(
                       child:
@@ -417,6 +802,18 @@ class _AuditLogsScreenState
                               _formatDateTime(
                             log.createdAt,
                           ),
+                          canManage:
+                              canManage,
+                          onEdit:
+                              () =>
+                                  _editLog(
+                            log,
+                          ),
+                          onDelete:
+                              () =>
+                                  _deleteLog(
+                            log,
+                          ),
                         ),
                       ),
                     );
@@ -429,10 +826,6 @@ class _AuditLogsScreenState
     );
   }
 
-  // =========================================================
-  // SEARCH CARD
-  // =========================================================
-
   Widget _buildSearchCard(
     AuditLogController controller,
   ) {
@@ -444,8 +837,7 @@ class _AuditLogsScreenState
         ),
         child: Column(
           crossAxisAlignment:
-              CrossAxisAlignment
-                  .stretch,
+              CrossAxisAlignment.stretch,
           children: [
             Text(
               'البحث في سجل العمليات',
@@ -460,17 +852,14 @@ class _AuditLogsScreenState
                             FontWeight.bold,
                       ),
             ),
-
             const SizedBox(
               height: 16,
             ),
-
             TextField(
               controller:
                   _codeController,
               enabled:
-                  !controller
-                      .isLoading,
+                  !controller.isLoading,
               decoration:
                   const InputDecoration(
                 labelText:
@@ -483,11 +872,9 @@ class _AuditLogsScreenState
                     OutlineInputBorder(),
               ),
             ),
-
             const SizedBox(
               height: 14,
             ),
-
             DropdownButtonFormField<
                 String>(
               value:
@@ -506,16 +893,13 @@ class _AuditLogsScreenState
               items: [
                 const DropdownMenuItem<
                     String>(
-                  value:
-                      null,
+                  value: null,
                   child:
                       Text(
                     'جميع العمليات',
                   ),
                 ),
-
-                ..._actionNames
-                    .entries
+                ..._actionNames.entries
                     .map(
                   (
                     entry,
@@ -533,10 +917,11 @@ class _AuditLogsScreenState
                 ),
               ],
               onChanged:
-                  controller
-                          .isLoading
+                  controller.isLoading
                       ? null
-                      : (value) {
+                      : (
+                        value,
+                      ) {
                           setState(
                             () {
                               _selectedAction =
@@ -545,11 +930,9 @@ class _AuditLogsScreenState
                           );
                         },
             ),
-
             const SizedBox(
               height: 14,
             ),
-
             LayoutBuilder(
               builder:
                   (
@@ -559,22 +942,17 @@ class _AuditLogsScreenState
                 final width =
                     constraints.maxWidth >=
                             600
-                        ? (constraints
-                                    .maxWidth -
+                        ? (constraints.maxWidth -
                                 12) /
                             2
-                        : constraints
-                            .maxWidth;
+                        : constraints.maxWidth;
 
                 return Wrap(
-                  spacing:
-                      12,
-                  runSpacing:
-                      12,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     SizedBox(
-                      width:
-                          width,
+                      width: width,
                       child:
                           _DateButton(
                         title:
@@ -584,16 +962,13 @@ class _AuditLogsScreenState
                           _fromDate,
                         ),
                         onPressed:
-                            controller
-                                    .isLoading
+                            controller.isLoading
                                 ? null
                                 : _selectFromDate,
                       ),
                     ),
-
                     SizedBox(
-                      width:
-                          width,
+                      width: width,
                       child:
                           _DateButton(
                         title:
@@ -603,8 +978,7 @@ class _AuditLogsScreenState
                           _toDate,
                         ),
                         onPressed:
-                            controller
-                                    .isLoading
+                            controller.isLoading
                                 ? null
                                 : _selectToDate,
                       ),
@@ -613,66 +987,34 @@ class _AuditLogsScreenState
                 );
               },
             ),
-
-            if (controller
-                    .errorMessage !=
+            if (controller.errorMessage !=
                 null) ...[
               const SizedBox(
                 height: 12,
               ),
-
-              Container(
-                padding:
-                    const EdgeInsets
-                        .all(
-                  12,
-                ),
-                decoration:
-                    BoxDecoration(
+              Text(
+                controller.errorMessage!,
+                style:
+                    TextStyle(
                   color:
                       Theme.of(
                     context,
-                  )
-                          .colorScheme
-                          .errorContainer,
-                  borderRadius:
-                      BorderRadius
-                          .circular(
-                    8,
-                  ),
-                ),
-                child: Text(
-                  controller
-                      .errorMessage!,
-                  style:
-                      TextStyle(
-                    color:
-                        Theme.of(
-                      context,
-                    )
-                            .colorScheme
-                            .onErrorContainer,
-                  ),
+                  ).colorScheme.error,
                 ),
               ),
             ],
-
             const SizedBox(
               height: 16,
             ),
-
             Wrap(
-              spacing:
-                  10,
-              runSpacing:
-                  10,
+              spacing: 10,
+              runSpacing: 10,
               alignment:
                   WrapAlignment.end,
               children: [
                 OutlinedButton.icon(
                   onPressed:
-                      controller
-                              .isLoading
+                      controller.isLoading
                           ? null
                           : _clearSearch,
                   icon:
@@ -684,11 +1026,9 @@ class _AuditLogsScreenState
                     'مسح البحث',
                   ),
                 ),
-
                 FilledButton.icon(
                   onPressed:
-                      controller
-                              .isLoading
+                      controller.isLoading
                           ? null
                           : _search,
                   icon:
@@ -710,7 +1050,7 @@ class _AuditLogsScreenState
 }
 
 // ===========================================================
-// AUDIT LOG CARD
+// CARD
 // ===========================================================
 
 class _AuditLogCard
@@ -718,54 +1058,30 @@ class _AuditLogCard
   const _AuditLogCard({
     required this.log,
     required this.formattedDate,
+    required this.canManage,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final AuditLog log;
   final String formattedDate;
+  final bool canManage;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(
     BuildContext context,
   ) {
-    final name =
-        (log.details['name'] ?? '')
-            .toString();
-
-    final role =
-        (log.details['role'] ?? '')
-            .toString();
-
-    final distributorName =
-        (log.details[
-                    'distributorName'] ??
-                '')
-            .toString();
-
-    final reportTitle =
-        (log.details[
-                    'reportTitle'] ??
-                '')
-            .toString();
-
-    final targetName =
-        (log.details[
-                    'targetName'] ??
-                '')
-            .toString();
-
     return Card(
-      child:
-          ExpansionTile(
+      child: ExpansionTile(
         leading:
-            CircleAvatar(
+            const CircleAvatar(
           child:
               Icon(
-            _iconForAction(
-              log.action,
-            ),
+            Icons.history,
           ),
         ),
-
         title:
             Text(
           log.actionName,
@@ -775,136 +1091,162 @@ class _AuditLogCard
                 FontWeight.bold,
           ),
         ),
-
         subtitle:
             Text(
-          'الكود: '
-          '${log.targetCode.isEmpty ? 'غير متوفر' : log.targetCode}'
-          '\n$formattedDate',
+          '$formattedDate'
+          '${log.targetCode.trim().isEmpty ? '' : '  |  ${log.targetCode}'}',
         ),
-
+        trailing:
+            canManage
+                ? Wrap(
+                    spacing: 4,
+                    children: [
+                      IconButton(
+                        tooltip:
+                            'تعديل',
+                        onPressed:
+                            onEdit,
+                        icon:
+                            const Icon(
+                          Icons.edit,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip:
+                            'حذف',
+                        onPressed:
+                            onDelete,
+                        icon:
+                            const Icon(
+                          Icons.delete_outline,
+                        ),
+                      ),
+                    ],
+                  )
+                : null,
         childrenPadding:
-            const EdgeInsets
-                .fromLTRB(
+            const EdgeInsets.fromLTRB(
           16,
           0,
           16,
           16,
         ),
-
         children: [
-          _InformationRow(
+          _InfoRow(
             title:
-                'معرف منفذ العملية',
+                'نوع العملية',
             value:
-                log.performedByUid,
+                log.actionName,
           ),
-
-          _InformationRow(
+          _InfoRow(
             title:
-                'معرف المستخدم',
+                'كود المستهدف',
             value:
-                log.targetUid,
+                log.targetCode
+                        .trim()
+                        .isEmpty
+                    ? '—'
+                    : log.targetCode,
           ),
-
-          if (name.isNotEmpty)
-            _InformationRow(
-              title:
-                  'اسم المستخدم',
-              value:
-                  name,
-            ),
-
-          if (role.isNotEmpty)
-            _InformationRow(
-              title:
-                  'الصلاحية',
-              value:
-                  role,
-            ),
-
-          if (distributorName
-              .isNotEmpty)
-            _InformationRow(
-              title:
-                  'الموزع',
-              value:
-                  distributorName,
-            ),
-
-          if (reportTitle.isNotEmpty)
-            _InformationRow(
-              title:
-                  'التقرير',
-              value:
-                  reportTitle,
-            ),
-
-          if (targetName.isNotEmpty)
-            _InformationRow(
-              title:
-                  'الجهة',
-              value:
-                  targetName,
-            ),
-
-          _InformationRow(
+          _InfoRow(
             title:
-                'التاريخ والوقت',
+                'وقت العملية',
             value:
                 formattedDate,
+          ),
+          _InfoRow(
+            title:
+                'UID المنفذ',
+            value:
+                log.performedByUid
+                        .trim()
+                        .isEmpty
+                    ? '—'
+                    : log.performedByUid,
+          ),
+          if (log.details.isNotEmpty) ...[
+            const Divider(),
+            Align(
+              alignment:
+                  Alignment.centerRight,
+              child:
+                  Text(
+                'التفاصيل',
+                style:
+                    Theme.of(
+                  context,
+                )
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+              ),
+            ),
+            const SizedBox(
+              height: 6,
+            ),
+            for (final entry
+                in log.details.entries)
+              _InfoRow(
+                title:
+                    entry.key,
+                value:
+                    entry.value
+                        .toString(),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow
+    extends StatelessWidget {
+  const _InfoRow({
+    required this.title,
+    required this.value,
+  });
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Padding(
+      padding:
+          const EdgeInsets.symmetric(
+        vertical: 3,
+      ),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(
+              title,
+              style:
+                  const TextStyle(
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+            ),
           ),
         ],
       ),
     );
   }
-
-  IconData _iconForAction(
-    String action,
-  ) {
-    switch (action) {
-      case 'create_user':
-        return Icons.person_add;
-
-      case 'update_user':
-        return Icons.edit;
-
-      case 'change_user_password':
-        return Icons.password;
-
-      case 'activate_user':
-        return Icons.person_add_alt_1;
-
-      case 'deactivate_user':
-        return Icons.person_off;
-
-      case 'delete_user':
-        return Icons.delete_forever;
-
-      case 'save_report':
-        return Icons.save_outlined;
-
-      case 'update_report':
-        return Icons.edit_document;
-
-      case 'delete_report':
-        return Icons.delete_sweep_outlined;
-
-      case 'print_report':
-        return Icons.print_outlined;
-
-      case 'share_report':
-        return Icons.share_outlined;
-
-      default:
-        return Icons.history;
-    }
-  }
 }
-
-// ===========================================================
-// DATE BUTTON
-// ===========================================================
 
 class _DateButton
     extends StatelessWidget {
@@ -922,94 +1264,21 @@ class _DateButton
   Widget build(
     BuildContext context,
   ) {
-    return OutlinedButton(
+    return OutlinedButton.icon(
       onPressed:
           onPressed,
-      style:
-          OutlinedButton
-              .styleFrom(
-        padding:
-            const EdgeInsets.all(
-          16,
-        ),
-        alignment:
-            Alignment.centerRight,
-      ),
-      child: Row(
-        children: [
+      icon:
           const Icon(
-            Icons.date_range,
-          ),
-
-          const SizedBox(
-            width: 12,
-          ),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
-              children: [
-                Text(
-                  title,
-                  style:
-                      Theme.of(
-                    context,
-                  )
-                          .textTheme
-                          .bodySmall,
-                ),
-
-                const SizedBox(
-                  height: 3,
-                ),
-
-                Text(
-                  value,
-                ),
-              ],
-            ),
-          ),
-        ],
+        Icons.calendar_month,
       ),
-    );
-  }
-}
-
-// ===========================================================
-// INFORMATION ROW
-// ===========================================================
-
-class _InformationRow
-    extends StatelessWidget {
-  const _InformationRow({
-    required this.title,
-    required this.value,
-  });
-
-  final String title;
-  final String value;
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Padding(
-      padding:
-          const EdgeInsets
-              .symmetric(
-        vertical: 5,
-      ),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment
-                .start,
-        children: [
-          SizedBox(
-            width:
-                150,
-            child: Text(
+      label: Padding(
+        padding:
+            const EdgeInsets.symmetric(
+          vertical: 12,
+        ),
+        child: Column(
+          children: [
+            Text(
               title,
               style:
                   const TextStyle(
@@ -1017,17 +1286,25 @@ class _InformationRow
                     FontWeight.bold,
               ),
             ),
-          ),
-
-          Expanded(
-            child: SelectableText(
-              value.trim().isEmpty
-                  ? 'غير متوفر'
-                  : value,
+            const SizedBox(
+              height: 2,
             ),
-          ),
-        ],
+            Text(value),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _AuditEditResult {
+  const _AuditEditResult({
+    required this.action,
+    required this.targetCode,
+    required this.note,
+  });
+
+  final String action;
+  final String targetCode;
+  final String note;
 }
