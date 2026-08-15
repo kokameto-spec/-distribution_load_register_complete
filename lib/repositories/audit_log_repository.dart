@@ -12,6 +12,9 @@ class AuditLogRepository {
   AuditLogRepository({
     FirebaseFirestore? firestore,
   }) {
+    /*
+     * Windows لا ينشئ FirebaseFirestore Native.
+     */
     if (!_windows) {
       _firestore =
           firestore ?? FirebaseFirestore.instance;
@@ -23,14 +26,23 @@ class AuditLogRepository {
   static const int _defaultLimit = 200;
   static const int _searchLimit = 500;
 
+  // =========================================================
+  // PLATFORM
+  // =========================================================
+
   bool get _windows {
     return !kIsWeb &&
         defaultTargetPlatform ==
             TargetPlatform.windows;
   }
 
+  // =========================================================
+  // FIRESTORE NATIVE
+  // =========================================================
+
   FirebaseFirestore get _nativeFirestore {
-    final firestore = _firestore;
+    final firestore =
+        _firestore;
 
     if (firestore == null) {
       throw StateError(
@@ -54,8 +66,16 @@ class AuditLogRepository {
 
   Stream<List<AuditLog>> watchAll() {
     if (_windows) {
+      /*
+       * Windows لا يدعم snapshots
+       * من Firestore Native في نسختنا.
+       *
+       * تحديث خفيف كل 30 ثانية.
+       */
       return Stream<List<AuditLog>>.periodic(
-        const Duration(seconds: 30),
+        const Duration(
+          seconds: 30,
+        ),
       ).asyncMap(
         (_) => latest(),
       ).startWith(
@@ -68,16 +88,20 @@ class AuditLogRepository {
           'createdAt',
           descending: true,
         )
-        .limit(_defaultLimit)
+        .limit(
+          _defaultLimit,
+        )
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(
-                AuditLog.fromFirestore,
-              )
-              .toList(
-                growable: false,
-              ),
+          (snapshot) {
+            return snapshot.docs
+                .map(
+                  AuditLog.fromFirestore,
+                )
+                .toList(
+                  growable: false,
+                );
+          },
         );
   }
 
@@ -98,7 +122,9 @@ class AuditLogRepository {
               'createdAt',
               descending: true,
             )
-            .limit(_defaultLimit)
+            .limit(
+              _defaultLimit,
+            )
             .get();
 
     return snapshot.docs
@@ -131,23 +157,27 @@ class AuditLogRepository {
 
     if (_windows) {
       /*
-       * Firestore نفسه يقوم بتصفية التاريخ
-       * بدل تنزيل سجل العمليات كله.
+       * التاريخ تتم تصفيته في Firestore نفسه.
        *
        * action و targetCode يتم تصفيتهما
-       * محليًا على المجموعة الصغيرة الناتجة.
+       * محليًا بعد تنزيل مجموعة محدودة فقط.
        */
       final logs =
           await _queryWindows(
-        fromDate: fromDate,
-        toDate: toDate,
-        limit: _searchLimit,
+        fromDate:
+            fromDate,
+        toDate:
+            toDate,
+        limit:
+            _searchLimit,
       );
 
       return _filterLocal(
         logs,
-        action: normalizedAction,
-        targetCode: normalizedCode,
+        action:
+            normalizedAction,
+        targetCode:
+            normalizedCode,
       );
     }
 
@@ -186,21 +216,24 @@ class AuditLogRepository {
             )
             .get();
 
-    final logs = snapshot.docs
-        .map(
-          AuditLog.fromFirestore,
-        )
-        .toList();
+    final logs =
+        snapshot.docs
+            .map(
+              AuditLog.fromFirestore,
+            )
+            .toList();
 
     return _filterLocal(
       logs,
-      action: normalizedAction,
-      targetCode: normalizedCode,
+      action:
+          normalizedAction,
+      targetCode:
+          normalizedCode,
     );
   }
 
   // =========================================================
-  // WINDOWS FIRESTORE QUERY
+  // WINDOWS QUERY
   // =========================================================
 
   Future<List<AuditLog>> _queryWindows({
@@ -262,20 +295,25 @@ class AuditLogRepository {
     Map<String, dynamic>? where;
 
     if (filters.length == 1) {
-      where = filters.first;
+      where =
+          filters.first;
     } else if (filters.length > 1) {
-      where = <String, dynamic>{
+      where =
+          <String, dynamic>{
         'compositeFilter':
             <String, dynamic>{
-          'op': 'AND',
-          'filters': filters,
+          'op':
+              'AND',
+          'filters':
+              filters,
         },
       };
     }
 
     final structuredQuery =
         <String, dynamic>{
-      'from': <Map<String, dynamic>>[
+      'from':
+          <Map<String, dynamic>>[
         <String, dynamic>{
           'collectionId':
               'audit_logs',
@@ -283,7 +321,8 @@ class AuditLogRepository {
       ],
 
       if (where != null)
-        'where': where,
+        'where':
+            where,
 
       'orderBy':
           <Map<String, dynamic>>[
@@ -298,42 +337,106 @@ class AuditLogRepository {
         },
       ],
 
-      'limit': limit,
+      'limit':
+          limit,
     };
 
-    final uri = Uri.parse(
+    final uri =
+        Uri.parse(
       'https://firestore.googleapis.com/v1/'
       'projects/${FirebaseRestService.projectId}/'
       'databases/(default)/documents:runQuery',
     );
 
-    final response = await http
-        .post(
-          uri,
-          headers:
-              FirebaseRestService
-                  .authHeaders,
-          body: jsonEncode(
-            <String, dynamic>{
-              'structuredQuery':
-                  structuredQuery,
-            },
-          ),
-        )
-        .timeout(
-          const Duration(
-            seconds: 25,
-          ),
+    /*
+     * نستخدم getValidAuthHeaders()
+     * بدل authHeaders القديم.
+     *
+     * كده التوكن يتجدد قبل الطلب
+     * عند الحاجة.
+     */
+    var headers =
+        await FirebaseRestService
+            .getValidAuthHeaders();
+
+    var response =
+        await http
+            .post(
+              uri,
+              headers:
+                  headers,
+              body:
+                  jsonEncode(
+                <String, dynamic>{
+                  'structuredQuery':
+                      structuredQuery,
+                },
+              ),
+            )
+            .timeout(
+              const Duration(
+                seconds: 25,
+              ),
+            );
+
+    /*
+     * حماية إضافية:
+     *
+     * لو التوكن انتهى بعد الفحص مباشرة
+     * ورجع Firestore 401،
+     * نعمل Refresh ونعيد الطلب مرة واحدة.
+     */
+    if (response.statusCode == 401) {
+      final refreshed =
+          await FirebaseRestService
+              .refreshIdToken();
+
+      if (!refreshed) {
+        throw StateError(
+          'انتهت جلسة تسجيل الدخول. '
+          'سجل الدخول مرة أخرى.',
         );
+      }
+
+      headers =
+          await FirebaseRestService
+              .getValidAuthHeaders();
+
+      response =
+          await http
+              .post(
+                uri,
+                headers:
+                    headers,
+                body:
+                    jsonEncode(
+                  <String, dynamic>{
+                    'structuredQuery':
+                        structuredQuery,
+                  },
+                ),
+              )
+              .timeout(
+                const Duration(
+                  seconds: 25,
+                ),
+              );
+    }
+
+    // =======================================================
+    // RESPONSE STATUS
+    // =======================================================
 
     if (response.statusCode < 200 ||
         response.statusCode >= 300) {
-      throw StateError(
-        'تعذر تحميل سجل العمليات: '
-        '${response.statusCode} '
-        '${response.body}',
+      _throwWindowsError(
+        response,
       );
     }
+
+    // =======================================================
+    // DECODE
+    // =======================================================
 
     final decoded =
         jsonDecode(
@@ -444,8 +547,22 @@ class AuditLogRepository {
     String id,
     Map<String, dynamic> data,
   ) {
+    final rawDetails =
+        data['details'];
+
+    Map<String, dynamic> details =
+        <String, dynamic>{};
+
+    if (rawDetails is Map) {
+      details =
+          Map<String, dynamic>.from(
+        rawDetails,
+      );
+    }
+
     return AuditLog(
-      id: id,
+      id:
+          id,
 
       action:
           (data['action'] ?? '')
@@ -470,13 +587,13 @@ class AuditLogRepository {
               DateTime.now(),
 
       details:
-          Map<String, dynamic>.from(
-        data['details']
-                as Map? ??
-            const <String, dynamic>{},
-      ),
+          details,
     );
   }
+
+  // =========================================================
+  // DATE
+  // =========================================================
 
   DateTime? _parseDate(
     dynamic value,
@@ -496,6 +613,80 @@ class AuditLogRepository {
     }
 
     return null;
+  }
+
+  // =========================================================
+  // WINDOWS ERROR
+  // =========================================================
+
+  void _throwWindowsError(
+    http.Response response,
+  ) {
+    switch (response.statusCode) {
+      case 401:
+        throw StateError(
+          'انتهت جلسة تسجيل الدخول. '
+          'سجل الدخول مرة أخرى.',
+        );
+
+      case 403:
+        throw StateError(
+          'لا توجد صلاحية لقراءة سجل العمليات.',
+        );
+
+      case 429:
+        throw StateError(
+          'تم إرسال طلبات كثيرة. '
+          'أعد المحاولة بعد قليل.',
+        );
+
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        throw StateError(
+          'خدمة سجل العمليات غير متاحة حاليًا.',
+        );
+
+      default:
+        break;
+    }
+
+    String message =
+        'تعذر تحميل سجل العمليات.';
+
+    try {
+      final decoded =
+          jsonDecode(
+        response.body,
+      );
+
+      if (decoded is Map) {
+        final error =
+            decoded['error'];
+
+        if (error is Map) {
+          final value =
+              error['message'];
+
+          if (value != null &&
+              value
+                  .toString()
+                  .trim()
+                  .isNotEmpty) {
+            message =
+                value.toString();
+          }
+        }
+      }
+    } catch (_) {
+      // نستخدم الرسالة الافتراضية.
+    }
+
+    throw StateError(
+      '$message '
+      '(HTTP ${response.statusCode})',
+    );
   }
 }
 
