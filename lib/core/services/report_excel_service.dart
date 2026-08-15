@@ -81,10 +81,32 @@ class ReportExcelService {
     return Uint8List.fromList(bytes);
   }
 
+  // توافق مع الشاشات القديمة التي ما زالت تستدعي exportReport.
+  static Future<void> exportReport({
+    required List<LoadRecord> records,
+    required List<Distributor> distributors,
+    String? selectedDistributorId,
+    DateTime? selectedDateTime,
+    DateTime? fromDate,
+    DateTime? toDate,
+    bool allDistributorsHourly = false,
+  }) async {
+    await saveReport(
+      records: records,
+      distributors: distributors,
+      fileName: 'احمال الموزعات',
+      selectedDistributorId: selectedDistributorId,
+      selectedDateTime: selectedDateTime,
+      fromDate: fromDate,
+      toDate: toDate,
+      allDistributorsHourly: allDistributorsHourly,
+    );
+  }
+
   static Future<void> saveReport({
     required List<LoadRecord> records,
     required List<Distributor> distributors,
-    required String fileName,
+    String? fileName,
     String? selectedDistributorId,
     DateTime? selectedDateTime,
     DateTime? fromDate,
@@ -102,7 +124,7 @@ class ReportExcelService {
     );
 
     await FileSaver.instance.saveAs(
-      name: fileName,
+      name: _effectiveFileName(fileName),
       bytes: bytes,
       fileExtension: 'xlsx',
       mimeType: MimeType.microsoftExcel,
@@ -112,7 +134,7 @@ class ReportExcelService {
   static Future<void> shareReport({
     required List<LoadRecord> records,
     required List<Distributor> distributors,
-    required String fileName,
+    String? fileName,
     String? selectedDistributorId,
     DateTime? selectedDateTime,
     DateTime? fromDate,
@@ -133,12 +155,14 @@ class ReportExcelService {
       <XFile>[
         XFile.fromData(
           bytes,
-          name: '$fileName.xlsx',
           mimeType:
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ),
       ],
-      subject: fileName,
+      subject: _effectiveFileName(fileName),
+      fileNameOverrides: <String>[
+        '${_effectiveFileName(fileName)}.xlsx',
+      ],
     );
   }
 
@@ -340,6 +364,11 @@ class ReportExcelService {
       if (distributor.id == id) return distributor;
     }
     return null;
+  }
+
+  static String _effectiveFileName(String? value) {
+    final name = value?.trim() ?? '';
+    return name.isEmpty ? 'احمال الموزعات' : name;
   }
 
   static String _formatDate(DateTime value) {
