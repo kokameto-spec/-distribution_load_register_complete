@@ -19,7 +19,7 @@ class LoadRecordRepository {
   FirebaseFirestore? _firestore;
 
   static const int _homeLimit = 300;
-  static const int _searchLimit = 1000;
+  static const int _searchLimit = 500;
 
   bool get _windows {
     return !kIsWeb &&
@@ -53,14 +53,22 @@ class LoadRecordRepository {
     );
   }
 
+  // =========================================================
+  // WATCH ALL
+  // =========================================================
+
   Stream<List<LoadRecord>> watchAll() {
     if (_windows) {
       return Stream<List<LoadRecord>>.periodic(
-        const Duration(seconds: 15),
+        const Duration(seconds: 30),
       ).asyncMap(
-        (_) => search(),
+        (_) => search(
+          limit: _homeLimit,
+        ),
       ).startWith(
-        search(),
+        search(
+          limit: _homeLimit,
+        ),
       );
     }
 
@@ -82,22 +90,26 @@ class LoadRecordRepository {
         );
   }
 
+  // =========================================================
+  // WATCH DISTRIBUTOR
+  // =========================================================
+
   Stream<List<LoadRecord>>
       watchForDistributor(
     String distributorId,
   ) {
     if (_windows) {
       return Stream<List<LoadRecord>>.periodic(
-        const Duration(seconds: 15),
+        const Duration(seconds: 30),
       ).asyncMap(
         (_) => search(
-          distributorId:
-              distributorId,
+          distributorId: distributorId,
+          limit: _homeLimit,
         ),
       ).startWith(
         search(
-          distributorId:
-              distributorId,
+          distributorId: distributorId,
+          limit: _homeLimit,
         ),
       );
     }
@@ -108,27 +120,26 @@ class LoadRecordRepository {
           isEqualTo:
               distributorId.trim(),
         )
+        .orderBy(
+          'recordedAt',
+          descending: true,
+        )
         .limit(_homeLimit)
         .snapshots()
         .map(
-          (snapshot) {
-            final records = snapshot.docs
-                .map(
-                  LoadRecord.fromFirestore,
-                )
-                .toList();
-
-            records.sort(
-              (a, b) => b.recordedAt
-                  .compareTo(
-                a.recordedAt,
+          (snapshot) => snapshot.docs
+              .map(
+                LoadRecord.fromFirestore,
+              )
+              .toList(
+                growable: false,
               ),
-            );
-
-            return records;
-          },
         );
   }
+
+  // =========================================================
+  // LAST RECORD
+  // =========================================================
 
   Future<DateTime?> getLastRecordTime(
     String distributorId,
@@ -185,6 +196,10 @@ class LoadRecordRepository {
     return null;
   }
 
+  // =========================================================
+  // REMAINING TIME
+  // =========================================================
+
   Future<Duration?>
       remainingUntilNextRecord(
     String distributorId,
@@ -214,6 +229,10 @@ class LoadRecordRepository {
     return remaining;
   }
 
+  // =========================================================
+  // CREATE RECORD
+  // =========================================================
+
   Future<String> createRecord({
     required LoadRecord record,
   }) async {
@@ -229,6 +248,9 @@ class LoadRecordRepository {
     }
 
     if (_windows) {
+      final now =
+          DateTime.now();
+
       final id =
           await FirebaseRestService
               .createDocument(
@@ -268,9 +290,9 @@ class LoadRecordRepository {
             ),
           ),
           'recordedAt':
-              DateTime.now(),
+              now,
           'createdAt':
-              DateTime.now(),
+              now,
         },
       );
 
@@ -281,11 +303,11 @@ class LoadRecordRepository {
             record.distributorId,
         data: {
           'lastRecordAt':
-              DateTime.now(),
+              now,
           'lastTotalLoad':
               record.totalLoad,
           'updatedAt':
-              DateTime.now(),
+              now,
         },
       );
 
@@ -315,85 +337,53 @@ class LoadRecordRepository {
     return document.id;
   }
 
+  // =========================================================
+  // SEARCH
+  // =========================================================
+
   Future<List<LoadRecord>> search({
     String? distributorId,
     DateTime? fromDate,
     DateTime? toDate,
+    int limit = _searchLimit,
   }) async {
+    final normalizedDistributorId =
+        distributorId?.trim();
+
     if (_windows) {
-      final docs =
-          await FirebaseRestService
-              .getCollection(
+      final documents =
+          await FirebaseRestService.runQuery(
         collection: 'load_records',
-        pageSize: _searchLimit,
+        distributorId:
+            normalizedDistributorId,
+        fromDate:
+            fromDate,
+        toDate:
+            toDate,
+        limit:
+            limit,
       );
 
       final records =
-          docs.map(
-        (doc) {
+          documents.map(
+        (document) {
           final data =
               FirebaseRestService
                   .documentData(
-            doc,
+            document,
           );
 
           return _fromRest(
             FirebaseRestService
                 .documentId(
-              doc,
+              document,
             ),
             data,
           );
         },
-      ).where(
-        (record) {
-          if (distributorId != null &&
-              distributorId
-                  .trim()
-                  .isNotEmpty &&
-              record.distributorId !=
-                  distributorId.trim()) {
-            return false;
-          }
-
-          if (fromDate != null &&
-              record.recordedAt
-                  .isBefore(
-                fromDate,
-              )) {
-            return false;
-          }
-
-          if (toDate != null &&
-              record.recordedAt
-                  .isAfter(
-                toDate,
-              )) {
-            return false;
-          }
-
-          return true;
-        },
-      ).toList();
-
-      records.sort(
-        (a, b) => b.recordedAt
-            .compareTo(
-          a.recordedAt,
-        ),
+      ).toList(
+        growable: false,
       );
-
-      if (records.length >
-              _homeLimit &&
-          distributorId == null &&
-          fromDate == null &&
-          toDate == null) {
-        return records
-            .take(
-              _homeLimit,
-            )
-            .toList();
-      }
 
       return records;
     }
@@ -401,14 +391,14 @@ class LoadRecordRepository {
     Query<Map<String, dynamic>>
         query = _records;
 
-    if (distributorId != null &&
-        distributorId
-            .trim()
+    if (normalizedDistributorId !=
+            null &&
+        normalizedDistributorId
             .isNotEmpty) {
       query = query.where(
         'distributorId',
         isEqualTo:
-            distributorId.trim(),
+            normalizedDistributorId,
       );
     }
 
@@ -432,29 +422,68 @@ class LoadRecordRepository {
       );
     }
 
+    query = query.orderBy(
+      'recordedAt',
+      descending: true,
+    );
+
     final snapshot =
         await query
             .limit(
-              _searchLimit,
+              limit,
             )
             .get();
 
-    final records =
-        snapshot.docs
-            .map(
-              LoadRecord.fromFirestore,
-            )
-            .toList();
+    return snapshot.docs
+        .map(
+          LoadRecord.fromFirestore,
+        )
+        .toList(
+          growable: false,
+        );
+  }
 
-    records.sort(
-      (a, b) => b.recordedAt
-          .compareTo(
-        a.recordedAt,
+  // =========================================================
+  // SEARCH BY HOUR
+  // =========================================================
+
+  Future<List<LoadRecord>> searchHour({
+    String? distributorId,
+    required DateTime date,
+    required int hour,
+    int limit = _searchLimit,
+  }) async {
+    final start = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      hour,
+    );
+
+    final end =
+        start.add(
+      const Duration(hours: 1),
+    ).subtract(
+      const Duration(
+        milliseconds: 1,
       ),
     );
 
-    return records;
+    return search(
+      distributorId:
+          distributorId,
+      fromDate:
+          start,
+      toDate:
+          end,
+      limit:
+          limit,
+    );
   }
+
+  // =========================================================
+  // REST MODEL
+  // =========================================================
 
   LoadRecord _fromRest(
     String id,
@@ -499,22 +528,20 @@ class LoadRecordRepository {
           (data['createdByCode'] ?? '')
               .toString(),
       recordedAt:
-          DateTime.tryParse(
-                (data['recordedAt'] ?? '')
-                    .toString(),
+          _parseDate(
+                data['recordedAt'],
               ) ??
               DateTime.now(),
       totalLoad:
-          (data['totalLoad'] as num?)
-                  ?.toDouble() ??
+          _parseDouble(
+                data['totalLoad'],
+              ) ??
               0,
       cellValues:
           cellValues.map(
         (key, value) => MapEntry(
           int.tryParse(key) ?? 0,
-          (value as num?)
-                  ?.toDouble() ??
-              0,
+          _parseDouble(value) ?? 0,
         ),
       ),
       cellRunningStates:
@@ -531,6 +558,42 @@ class LoadRecordRepository {
           value == true,
         ),
       ),
+    );
+  }
+
+  // =========================================================
+  // HELPERS
+  // =========================================================
+
+  static DateTime? _parseDate(
+    dynamic value,
+  ) {
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(
+        value,
+      )?.toLocal();
+    }
+
+    return null;
+  }
+
+  static double? _parseDouble(
+    dynamic value,
+  ) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value?.toString() ?? '',
     );
   }
 }
