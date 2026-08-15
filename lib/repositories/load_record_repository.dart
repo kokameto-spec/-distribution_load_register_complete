@@ -9,10 +9,14 @@ import '../models/load_record.dart';
 class LoadRecordRepository {
   LoadRecordRepository({
     FirebaseFirestore? firestore,
-  }) : _firestore =
-            firestore ?? FirebaseFirestore.instance;
+  }) {
+    if (!_windows) {
+      _firestore =
+          firestore ?? FirebaseFirestore.instance;
+    }
+  }
 
-  final FirebaseFirestore _firestore;
+  FirebaseFirestore? _firestore;
 
   static const int _homeLimit = 300;
   static const int _searchLimit = 1000;
@@ -23,14 +27,30 @@ class LoadRecordRepository {
             TargetPlatform.windows;
   }
 
+  FirebaseFirestore get _nativeFirestore {
+    final firestore = _firestore;
+
+    if (firestore == null) {
+      throw StateError(
+        'Firebase Native غير مستخدم على Windows.',
+      );
+    }
+
+    return firestore;
+  }
+
   CollectionReference<Map<String, dynamic>>
       get _records {
-    return _firestore.collection('load_records');
+    return _nativeFirestore.collection(
+      'load_records',
+    );
   }
 
   CollectionReference<Map<String, dynamic>>
       get _distributors {
-    return _firestore.collection('distributors');
+    return _nativeFirestore.collection(
+      'distributors',
+    );
   }
 
   Stream<List<LoadRecord>> watchAll() {
@@ -39,7 +59,9 @@ class LoadRecordRepository {
         const Duration(seconds: 15),
       ).asyncMap(
         (_) => search(),
-      ).startWith(search());
+      ).startWith(
+        search(),
+      );
     }
 
     return _records
@@ -51,8 +73,12 @@ class LoadRecordRepository {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map(LoadRecord.fromFirestore)
-              .toList(growable: false),
+              .map(
+                LoadRecord.fromFirestore,
+              )
+              .toList(
+                growable: false,
+              ),
         );
   }
 
@@ -65,11 +91,13 @@ class LoadRecordRepository {
         const Duration(seconds: 15),
       ).asyncMap(
         (_) => search(
-          distributorId: distributorId,
+          distributorId:
+              distributorId,
         ),
       ).startWith(
         search(
-          distributorId: distributorId,
+          distributorId:
+              distributorId,
         ),
       );
     }
@@ -77,22 +105,29 @@ class LoadRecordRepository {
     return _records
         .where(
           'distributorId',
-          isEqualTo: distributorId.trim(),
+          isEqualTo:
+              distributorId.trim(),
         )
         .limit(_homeLimit)
         .snapshots()
-        .map((snapshot) {
-      final records = snapshot.docs
-          .map(LoadRecord.fromFirestore)
-          .toList();
+        .map(
+          (snapshot) {
+            final records = snapshot.docs
+                .map(
+                  LoadRecord.fromFirestore,
+                )
+                .toList();
 
-      records.sort(
-        (a, b) =>
-            b.recordedAt.compareTo(a.recordedAt),
-      );
+            records.sort(
+              (a, b) => b.recordedAt
+                  .compareTo(
+                a.recordedAt,
+              ),
+            );
 
-      return records;
-    });
+            return records;
+          },
+        );
   }
 
   Future<DateTime?> getLastRecordTime(
@@ -102,7 +137,8 @@ class LoadRecordRepository {
       final doc =
           await FirebaseRestService.getDocument(
         collection: 'distributors',
-        documentId: distributorId.trim(),
+        documentId:
+            distributorId.trim(),
       );
 
       if (doc == null) {
@@ -110,29 +146,37 @@ class LoadRecordRepository {
       }
 
       final data =
-          FirebaseRestService.documentData(doc);
+          FirebaseRestService.documentData(
+        doc,
+      );
 
-      final value = data['lastRecordAt'];
+      final value =
+          data['lastRecordAt'];
 
       if (value is String) {
-        return DateTime.tryParse(value);
+        return DateTime.tryParse(
+          value,
+        );
       }
 
       return null;
     }
 
-    final document =
-        await _distributors
-            .doc(distributorId.trim())
-            .get();
+    final document = await _distributors
+        .doc(
+          distributorId.trim(),
+        )
+        .get();
 
-    final data = document.data();
+    final data =
+        document.data();
 
     if (data == null) {
       return null;
     }
 
-    final value = data['lastRecordAt'];
+    final value =
+        data['lastRecordAt'];
 
     if (value is Timestamp) {
       return value.toDate();
@@ -141,7 +185,8 @@ class LoadRecordRepository {
     return null;
   }
 
-  Future<Duration?> remainingUntilNextRecord(
+  Future<Duration?>
+      remainingUntilNextRecord(
     String distributorId,
   ) async {
     final last =
@@ -154,10 +199,15 @@ class LoadRecordRepository {
     }
 
     final remaining = last
-        .add(const Duration(hours: 1))
-        .difference(DateTime.now());
+        .add(
+          const Duration(hours: 1),
+        )
+        .difference(
+          DateTime.now(),
+        );
 
-    if (remaining <= Duration.zero) {
+    if (remaining <=
+        Duration.zero) {
       return null;
     }
 
@@ -180,7 +230,8 @@ class LoadRecordRepository {
 
     if (_windows) {
       final id =
-          await FirebaseRestService.createDocument(
+          await FirebaseRestService
+              .createDocument(
         collection: 'load_records',
         data: {
           'distributorId':
@@ -223,34 +274,43 @@ class LoadRecordRepository {
         },
       );
 
-      await FirebaseRestService.patchDocument(
+      await FirebaseRestService
+          .patchDocument(
         collection: 'distributors',
-        documentId: record.distributorId,
+        documentId:
+            record.distributorId,
         data: {
-          'lastRecordAt': DateTime.now(),
+          'lastRecordAt':
+              DateTime.now(),
           'lastTotalLoad':
               record.totalLoad,
-          'updatedAt': DateTime.now(),
+          'updatedAt':
+              DateTime.now(),
         },
       );
 
       return id;
     }
 
-    final document = _records.doc();
+    final document =
+        _records.doc();
 
     await document.set(
       record.toFirestore(),
     );
 
     await _distributors
-        .doc(record.distributorId)
-        .update({
-      'lastRecordAt':
-          FieldValue.serverTimestamp(),
-      'lastTotalLoad':
-          record.totalLoad,
-    });
+        .doc(
+          record.distributorId,
+        )
+        .update(
+      {
+        'lastRecordAt':
+            FieldValue.serverTimestamp(),
+        'lastTotalLoad':
+            record.totalLoad,
+      },
+    );
 
     return document.id;
   }
@@ -262,64 +322,89 @@ class LoadRecordRepository {
   }) async {
     if (_windows) {
       final docs =
-          await FirebaseRestService.getCollection(
+          await FirebaseRestService
+              .getCollection(
         collection: 'load_records',
         pageSize: _searchLimit,
       );
 
-      final records = docs.map((doc) {
-        final data =
-            FirebaseRestService.documentData(doc);
+      final records =
+          docs.map(
+        (doc) {
+          final data =
+              FirebaseRestService
+                  .documentData(
+            doc,
+          );
 
-        return _fromRest(
-          FirebaseRestService.documentId(doc),
-          data,
-        );
-      }).where((record) {
-        if (distributorId != null &&
-            distributorId.trim().isNotEmpty &&
-            record.distributorId !=
-                distributorId.trim()) {
-          return false;
-        }
+          return _fromRest(
+            FirebaseRestService
+                .documentId(
+              doc,
+            ),
+            data,
+          );
+        },
+      ).where(
+        (record) {
+          if (distributorId != null &&
+              distributorId
+                  .trim()
+                  .isNotEmpty &&
+              record.distributorId !=
+                  distributorId.trim()) {
+            return false;
+          }
 
-        if (fromDate != null &&
-            record.recordedAt
-                .isBefore(fromDate)) {
-          return false;
-        }
+          if (fromDate != null &&
+              record.recordedAt
+                  .isBefore(
+                fromDate,
+              )) {
+            return false;
+          }
 
-        if (toDate != null &&
-            record.recordedAt
-                .isAfter(toDate)) {
-          return false;
-        }
+          if (toDate != null &&
+              record.recordedAt
+                  .isAfter(
+                toDate,
+              )) {
+            return false;
+          }
 
-        return true;
-      }).toList();
+          return true;
+        },
+      ).toList();
 
       records.sort(
-        (a, b) =>
-            b.recordedAt.compareTo(a.recordedAt),
+        (a, b) => b.recordedAt
+            .compareTo(
+          a.recordedAt,
+        ),
       );
 
-      if (records.length > _homeLimit &&
+      if (records.length >
+              _homeLimit &&
           distributorId == null &&
           fromDate == null &&
           toDate == null) {
         return records
-            .take(_homeLimit)
+            .take(
+              _homeLimit,
+            )
             .toList();
       }
 
       return records;
     }
 
-    Query<Map<String, dynamic>> query =
-        _records;
+    Query<Map<String, dynamic>>
+        query = _records;
 
     if (distributorId != null &&
-        distributorId.trim().isNotEmpty) {
+        distributorId
+            .trim()
+            .isNotEmpty) {
       query = query.where(
         'distributorId',
         isEqualTo:
@@ -331,7 +416,9 @@ class LoadRecordRepository {
       query = query.where(
         'recordedAt',
         isGreaterThanOrEqualTo:
-            Timestamp.fromDate(fromDate),
+            Timestamp.fromDate(
+          fromDate,
+        ),
       );
     }
 
@@ -339,20 +426,31 @@ class LoadRecordRepository {
       query = query.where(
         'recordedAt',
         isLessThanOrEqualTo:
-            Timestamp.fromDate(toDate),
+            Timestamp.fromDate(
+          toDate,
+        ),
       );
     }
 
     final snapshot =
-        await query.limit(_searchLimit).get();
+        await query
+            .limit(
+              _searchLimit,
+            )
+            .get();
 
-    final records = snapshot.docs
-        .map(LoadRecord.fromFirestore)
-        .toList();
+    final records =
+        snapshot.docs
+            .map(
+              LoadRecord.fromFirestore,
+            )
+            .toList();
 
     records.sort(
-      (a, b) =>
-          b.recordedAt.compareTo(a.recordedAt),
+      (a, b) => b.recordedAt
+          .compareTo(
+        a.recordedAt,
+      ),
     );
 
     return records;
@@ -364,7 +462,9 @@ class LoadRecordRepository {
   ) {
     final cellValues =
         Map<String, dynamic>.from(
-      data['cellValues'] as Map? ?? {},
+      data['cellValues']
+              as Map? ??
+          {},
     );
 
     final states =
@@ -398,29 +498,34 @@ class LoadRecordRepository {
       createdByCode:
           (data['createdByCode'] ?? '')
               .toString(),
-      recordedAt: DateTime.tryParse(
-            (data['recordedAt'] ?? '')
-                .toString(),
-          ) ??
-          DateTime.now(),
+      recordedAt:
+          DateTime.tryParse(
+                (data['recordedAt'] ?? '')
+                    .toString(),
+              ) ??
+              DateTime.now(),
       totalLoad:
           (data['totalLoad'] as num?)
                   ?.toDouble() ??
               0,
-      cellValues: cellValues.map(
+      cellValues:
+          cellValues.map(
         (key, value) => MapEntry(
           int.tryParse(key) ?? 0,
-          (value as num?)?.toDouble() ??
+          (value as num?)
+                  ?.toDouble() ??
               0,
         ),
       ),
-      cellRunningStates: states.map(
+      cellRunningStates:
+          states.map(
         (key, value) => MapEntry(
           int.tryParse(key) ?? 0,
           value == true,
         ),
       ),
-      manualEntryStates: manual.map(
+      manualEntryStates:
+          manual.map(
         (key, value) => MapEntry(
           int.tryParse(key) ?? 0,
           value == true,
@@ -430,7 +535,8 @@ class LoadRecordRepository {
   }
 }
 
-extension _LoadStreamStart<T> on Stream<T> {
+extension _LoadStreamStart<T>
+    on Stream<T> {
   Stream<T> startWith(
     Future<T> first,
   ) async* {
