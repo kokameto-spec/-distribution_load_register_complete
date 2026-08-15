@@ -6,13 +6,11 @@ import 'package:flutter/foundation.dart';
 import '../models/audit_log.dart';
 import '../repositories/audit_log_repository.dart';
 
-class AuditLogController
-    extends ChangeNotifier {
+class AuditLogController extends ChangeNotifier {
   AuditLogController({
     AuditLogRepository? repository,
   }) : _repository =
-            repository ??
-            AuditLogRepository();
+            repository ?? AuditLogRepository();
 
   final AuditLogRepository _repository;
 
@@ -50,6 +48,12 @@ class AuditLogController
   String? get errorMessage =>
       _errorMessage;
 
+  bool get _windows {
+    return !kIsWeb &&
+        defaultTargetPlatform ==
+            TargetPlatform.windows;
+  }
+
   // =========================================================
   // START
   // =========================================================
@@ -66,21 +70,67 @@ class AuditLogController
 
     notifyListeners();
 
+    // =======================================================
+    // WINDOWS
+    // =======================================================
+
+    if (_windows) {
+      try {
+        /*
+         * Windows:
+         *
+         * تحميل مرة واحدة فقط.
+         * لا Stream ولا Polling مستمر.
+         */
+        _logs = await _repository
+            .latest()
+            .timeout(
+          const Duration(
+            seconds: 25,
+          ),
+        );
+
+        _errorMessage = null;
+      } on TimeoutException {
+        _logs =
+            <AuditLog>[];
+
+        _errorMessage =
+            'استغرق تحميل سجل العمليات وقتًا طويلًا. '
+            'تحقق من الإنترنت ثم أعد المحاولة.';
+      } catch (error) {
+        _logs =
+            <AuditLog>[];
+
+        _errorMessage =
+            _errorText(
+          error,
+        );
+      } finally {
+        _isLoading = false;
+        _isListening = false;
+
+        notifyListeners();
+      }
+
+      return;
+    }
+
+    // =======================================================
+    // ANDROID / OTHER PLATFORMS
+    // =======================================================
+
     _subscription =
         _repository
             .watchAll()
             .listen(
       (items) {
-        /*
-         * لو المستخدم دخل وضع البحث،
-         * لا نسمح للـstream الدوري
-         * أن يمسح نتائج البحث.
-         */
         if (_isSearchMode) {
           return;
         }
 
-        _logs = items;
+        _logs =
+            items;
 
         _isLoading = false;
         _isListening = true;
@@ -88,8 +138,9 @@ class AuditLogController
 
         notifyListeners();
       },
-      onError:
-          (Object error) {
+      onError: (
+        Object error,
+      ) {
         if (_isSearchMode) {
           return;
         }
@@ -109,6 +160,7 @@ class AuditLogController
           return;
         }
 
+        _isLoading = false;
         _isListening = false;
 
         notifyListeners();
@@ -126,6 +178,7 @@ class AuditLogController
     _subscription = null;
 
     _isListening = false;
+    _isLoading = false;
 
     notifyListeners();
   }
@@ -140,14 +193,6 @@ class AuditLogController
     DateTime? fromDate,
     DateTime? toDate,
   }) async {
-    /*
-     * مهم:
-     * إيقاف الـstream العادي قبل البحث.
-     *
-     * في النسخة القديمة كان الـstream
-     * يستطيع الكتابة فوق نتائج البحث
-     * بعد عدة ثوانٍ.
-     */
     await _subscription?.cancel();
 
     _subscription = null;
@@ -176,6 +221,9 @@ class AuditLogController
               seconds: 30,
             ),
           );
+
+      _errorMessage =
+          null;
     } on TimeoutException {
       _logs =
           <AuditLog>[];
