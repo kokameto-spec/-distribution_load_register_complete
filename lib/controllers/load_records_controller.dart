@@ -18,12 +18,7 @@ class LoadRecordsController extends ChangeNotifier {
   List<LoadRecord> _records = <LoadRecord>[];
 
   bool _isLoading = false;
-
   String? _errorMessage;
-
-  // =========================================================
-  // GETTERS
-  // =========================================================
 
   List<LoadRecord> get records {
     return List<LoadRecord>.unmodifiable(
@@ -34,10 +29,6 @@ class LoadRecordsController extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   String? get errorMessage => _errorMessage;
-
-  // =========================================================
-  // MAX / MIN
-  // =========================================================
 
   LoadRecord? get maximumLoadRecord {
     if (_records.isEmpty) {
@@ -113,7 +104,7 @@ class LoadRecordsController extends ChangeNotifier {
   }
 
   // =========================================================
-  // LISTEN DISTRIBUTOR
+  // LISTEN FOR DISTRIBUTOR
   // =========================================================
 
   void startListeningForDistributor(
@@ -152,7 +143,6 @@ class LoadRecordsController extends ChangeNotifier {
 
   // =========================================================
   // NORMAL SEARCH
-  // موزع واحد أو فترة عادية
   // =========================================================
 
   Future<List<LoadRecord>> search({
@@ -161,32 +151,35 @@ class LoadRecordsController extends ChangeNotifier {
     DateTime? toDate,
     int limit = 500,
   }) async {
-    _setLoading(
-      true,
-    );
+    _setLoading(true);
 
     _errorMessage = null;
 
     try {
-      _records = await _repository.search(
-        distributorId:
-            distributorId,
-        fromDate:
-            fromDate,
-        toDate:
-            toDate,
-        limit:
-            limit,
-      ).timeout(
-        const Duration(seconds: 30),
-      );
+      _records = await _repository
+          .search(
+            distributorId:
+                distributorId,
+            fromDate:
+                fromDate,
+            toDate:
+                toDate,
+            limit:
+                limit,
+          )
+          .timeout(
+            const Duration(
+              seconds: 35,
+            ),
+          );
 
       return records;
     } on TimeoutException {
       _records = <LoadRecord>[];
 
       _errorMessage =
-          'انتهت مهلة البحث. حاول تقليل الفترة أو أعد المحاولة.';
+          'انتهت مهلة البحث. '
+          'حاول مرة أخرى أو قلل الفترة.';
 
       return <LoadRecord>[];
     } catch (error) {
@@ -197,15 +190,12 @@ class LoadRecordsController extends ChangeNotifier {
 
       return <LoadRecord>[];
     } finally {
-      _setLoading(
-        false,
-      );
+      _setLoading(false);
     }
   }
 
   // =========================================================
-  // ALL DISTRIBUTORS BY HOUR
-  // البحث الصحيح لكل يوم في نفس الساعة
+  // ALL DISTRIBUTORS - ONE HOUR FOR MANY DAYS
   // =========================================================
 
   Future<List<LoadRecord>>
@@ -214,12 +204,9 @@ class LoadRecordsController extends ChangeNotifier {
     required DateTime toDate,
     required int hour,
   }) async {
-    _setLoading(
-      true,
-    );
+    _setLoading(true);
 
     _errorMessage = null;
-
     _records = <LoadRecord>[];
 
     try {
@@ -235,29 +222,22 @@ class LoadRecordsController extends ChangeNotifier {
         toDate.day,
       );
 
-      if (startDay.isAfter(
-        endDay,
-      )) {
+      if (startDay.isAfter(endDay)) {
         throw ArgumentError(
           'تاريخ البداية يجب أن يكون قبل تاريخ النهاية.',
         );
       }
 
       final totalDays =
-          endDay.difference(
-            startDay,
-          ).inDays +
-          1;
+          endDay.difference(startDay).inDays +
+              1;
 
       /*
-       * حماية إضافية.
-       *
-       * حتى لو المستخدم اختار فترة سنة،
-       * لن ننشئ كل الاستعلامات في نفس اللحظة.
-       *
-       * يتم التنفيذ على دفعات.
+       * خمس أيام فقط في كل دفعة.
+       * مناسب للأجهزة القديمة ولا يفتح عددًا كبيرًا
+       * من الطلبات في نفس الوقت.
        */
-      const batchSize = 7;
+      const batchSize = 5;
 
       final result =
           <LoadRecord>[];
@@ -270,8 +250,7 @@ class LoadRecordsController extends ChangeNotifier {
 
         for (var i = 0;
             i < batchSize &&
-                dayIndex + i <
-                    totalDays;
+                dayIndex + i < totalDays;
             i++) {
           final day =
               startDay.add(
@@ -285,6 +264,7 @@ class LoadRecordsController extends ChangeNotifier {
             day.month,
             day.day,
             hour,
+            0,
             0,
             0,
           );
@@ -305,11 +285,9 @@ class LoadRecordsController extends ChangeNotifier {
               toDate: to,
 
               /*
-               * عدد الموزعات عندنا أقل كثيرًا
-               * من هذا الرقم.
-               *
-               * 200 يكفي لكل ساعة في اليوم
-               * بدون تحميل آلاف السجلات.
+               * كل موزع يسجل مرة تقريبًا
+               * في الساعة، وبالتالي 200 نتيجة
+               * كافية جدًا للساعة الواحدة.
                */
               limit: 200,
             ),
@@ -320,21 +298,20 @@ class LoadRecordsController extends ChangeNotifier {
             await Future.wait(
           futures,
         ).timeout(
-          const Duration(seconds: 40),
+          const Duration(
+            seconds: 40,
+          ),
         );
 
         for (final items
             in batchResults) {
-          result.addAll(
-            items,
-          );
+          result.addAll(items);
         }
 
         dayIndex += batchSize;
 
         /*
-         * نحدث البيانات على دفعات
-         * بدون تجميد الواجهة.
+         * تحديث النتائج بالتدريج.
          */
         _records =
             List<LoadRecord>.from(
@@ -344,22 +321,18 @@ class LoadRecordsController extends ChangeNotifier {
         notifyListeners();
 
         /*
-         * نعطي واجهة Flutter فرصة للرسم
-         * بين كل دفعة.
+         * إعطاء Flutter فرصة لتحديث الواجهة
+         * بدل تجميد الـUI.
          */
         await Future<void>.delayed(
           const Duration(
-            milliseconds: 1,
+            milliseconds: 2,
           ),
         );
       }
 
-      /*
-       * ترتيب نهائي مرة واحدة فقط.
-       */
       result.sort(
-        (a, b) => b.recordedAt
-            .compareTo(
+        (a, b) => b.recordedAt.compareTo(
           a.recordedAt,
         ),
       );
@@ -370,7 +343,7 @@ class LoadRecordsController extends ChangeNotifier {
     } on TimeoutException {
       _errorMessage =
           'استغرق تحميل الفترة وقتًا أطول من المتوقع. '
-          'تم إيقاف البحث لحماية البرنامج من التجمّد.';
+          'تم الاحتفاظ بالبيانات التي تم تحميلها.';
 
       return records;
     } catch (error) {
@@ -379,9 +352,7 @@ class LoadRecordsController extends ChangeNotifier {
 
       return records;
     } finally {
-      _setLoading(
-        false,
-      );
+      _setLoading(false);
     }
   }
 
@@ -411,12 +382,9 @@ class LoadRecordsController extends ChangeNotifier {
     );
 
     return search(
-      fromDate:
-          from,
-      toDate:
-          to,
-      limit:
-          200,
+      fromDate: from,
+      toDate: to,
+      limit: 200,
     );
   }
 
@@ -440,21 +408,20 @@ class LoadRecordsController extends ChangeNotifier {
   Future<bool> saveRecord(
     LoadRecord record,
   ) async {
-    _setLoading(
-      true,
-    );
+    _setLoading(true);
 
     _errorMessage = null;
 
     try {
       await _repository
           .createRecord(
-        record:
-            record,
-      )
+            record: record,
+          )
           .timeout(
-        const Duration(seconds: 30),
-      );
+            const Duration(
+              seconds: 30,
+            ),
+          );
 
       return true;
     } on StateError catch (error) {
@@ -464,7 +431,8 @@ class LoadRecordsController extends ChangeNotifier {
       return false;
     } on TimeoutException {
       _errorMessage =
-          'انتهت مهلة حفظ الأحمال. تحقق من الاتصال بالإنترنت.';
+          'انتهت مهلة حفظ الأحمال. '
+          'تحقق من الاتصال بالإنترنت.';
 
       return false;
     } catch (error) {
@@ -473,9 +441,7 @@ class LoadRecordsController extends ChangeNotifier {
 
       return false;
     } finally {
-      _setLoading(
-        false,
-      );
+      _setLoading(false);
     }
   }
 
@@ -495,6 +461,7 @@ class LoadRecordsController extends ChangeNotifier {
 
   void clearRecords() {
     _records = <LoadRecord>[];
+    _errorMessage = null;
 
     notifyListeners();
   }
@@ -516,10 +483,6 @@ class LoadRecordsController extends ChangeNotifier {
 
     notifyListeners();
   }
-
-  // =========================================================
-  // DISPOSE
-  // =========================================================
 
   @override
   void dispose() {
