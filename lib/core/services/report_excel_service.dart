@@ -397,7 +397,7 @@ class _ReportExcelIndex {
     for (final record in records) {
       final d = record.recordedAt;
       final latestKey =
-          '${record.distributorId}|${d.year}|${d.month}|${d.day}|${d.hour}';
+          '${record.distributorId}|${d.year}|${d.month}|${d.day}';
 
       final old = latest[latestKey];
       if (old == null || record.recordedAt.isAfter(old.recordedAt)) {
@@ -428,7 +428,7 @@ class _ReportExcelIndex {
     required int hour,
   }) {
     return latest[
-        '$distributorId|${day.year}|${day.month}|${day.day}|$hour'];
+        '$distributorId|${day.year}|${day.month}|${day.day}'];
   }
 
   _ExcelCellRange range({
