@@ -8,64 +8,151 @@ import '../repositories/distributor_repository.dart';
 class DistributorController extends ChangeNotifier {
   DistributorController({
     DistributorRepository? repository,
-  }) : _repository = repository ?? DistributorRepository();
+  }) : _repository =
+            repository ?? DistributorRepository();
 
   final DistributorRepository _repository;
 
-  StreamSubscription<List<Distributor>>? _subscription;
+  Timer? _refreshTimer;
 
   List<Distributor> _distributors = <Distributor>[];
+
   bool _isLoading = false;
-  String? _errorMessage;
   bool _isListening = false;
 
-  List<Distributor> get distributors {
-    return List<Distributor>.unmodifiable(_distributors);
-  }
+  String? _errorMessage;
 
-  List<Distributor> get activeDistributors {
-    return _distributors
-        .where((distributor) => distributor.active)
-        .toList(growable: false);
-  }
+  List<Distributor> get distributors =>
+      List<Distributor>.unmodifiable(
+        _distributors,
+      );
+
+  List<Distributor> get activeDistributors =>
+      _distributors
+          .where(
+            (item) => item.active,
+          )
+          .toList(
+            growable: false,
+          );
 
   bool get isLoading => _isLoading;
+
   bool get isListening => _isListening;
+
   String? get errorMessage => _errorMessage;
 
-  Future<void> startListening() async {
-    await _subscription?.cancel();
+  // =========================================================
+  // START
+  // =========================================================
 
-    _isLoading = true;
+  Future<void> startListening() async {
+    if (_isListening) {
+      return;
+    }
+
     _isListening = true;
+    _isLoading = true;
     _errorMessage = null;
+
     notifyListeners();
 
-    _subscription = _repository.watchAll().listen(
-          (List<Distributor> items) {
-        _distributors = items;
-        _isLoading = false;
-        _errorMessage = null;
-        notifyListeners();
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        _isLoading = false;
-        _errorMessage = 'تعذر تحميل الموزعات.';
-        notifyListeners();
-      },
-      onDone: () {
-        _isListening = false;
-        notifyListeners();
+    await _loadDistributors();
+
+    _refreshTimer?.cancel();
+
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        _refreshSilently();
       },
     );
   }
 
+  // =========================================================
+  // FIRST LOAD
+  // =========================================================
+
+  Future<void> _loadDistributors() async {
+    try {
+      final items = await _repository
+          .getAll()
+          .timeout(
+            const Duration(seconds: 20),
+          );
+
+      _distributors = items;
+
+      _errorMessage = null;
+    } on TimeoutException {
+      _errorMessage =
+          'انتهت مهلة تحميل بيانات الموزعات. '
+          'تحقق من اتصال الإنترنت ثم حاول مرة أخرى.';
+    } catch (error) {
+      _errorMessage =
+          'تعذر تحميل بيانات الموزعات.\n$error';
+    } finally {
+      _isLoading = false;
+
+      notifyListeners();
+    }
+  }
+
+  // =========================================================
+  // SILENT REFRESH
+  // =========================================================
+
+  Future<void> _refreshSilently() async {
+    if (!_isListening) {
+      return;
+    }
+
+    try {
+      final items = await _repository
+          .getAll()
+          .timeout(
+            const Duration(seconds: 20),
+          );
+
+      _distributors = items;
+
+      _errorMessage = null;
+
+      notifyListeners();
+    } catch (_) {
+      // لا نمسح البيانات القديمة إذا فشل التحديث الدوري.
+    }
+  }
+
+  // =========================================================
+  // MANUAL REFRESH
+  // =========================================================
+
+  Future<void> refresh() async {
+    _isLoading = true;
+    _errorMessage = null;
+
+    notifyListeners();
+
+    await _loadDistributors();
+  }
+
+  // =========================================================
+  // STOP
+  // =========================================================
+
   Future<void> stopListening() async {
-    await _subscription?.cancel();
-    _subscription = null;
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+
     _isListening = false;
+
     notifyListeners();
   }
+
+  // =========================================================
+  // CREATE
+  // =========================================================
 
   Future<bool> create({
     required String code,
@@ -73,6 +160,7 @@ class DistributorController extends ChangeNotifier {
     required String type,
   }) async {
     _setLoading(true);
+
     _errorMessage = null;
 
     try {
@@ -82,20 +170,32 @@ class DistributorController extends ChangeNotifier {
         type: type,
       );
 
+      await _loadDistributors();
+
       return true;
     } on ArgumentError catch (error) {
-      _errorMessage = error.message?.toString();
+      _errorMessage =
+          error.message?.toString();
+
       return false;
     } on StateError catch (error) {
-      _errorMessage = error.message.toString();
+      _errorMessage =
+          error.message.toString();
+
       return false;
-    } catch (_) {
-      _errorMessage = 'تعذر إضافة الموزع.';
+    } catch (error) {
+      _errorMessage =
+          'تعذر إضافة الموزع.\n$error';
+
       return false;
     } finally {
       _setLoading(false);
     }
   }
+
+  // =========================================================
+  // UPDATE
+  // =========================================================
 
   Future<bool> update({
     required String id,
@@ -105,6 +205,7 @@ class DistributorController extends ChangeNotifier {
     required bool active,
   }) async {
     _setLoading(true);
+
     _errorMessage = null;
 
     try {
@@ -116,44 +217,77 @@ class DistributorController extends ChangeNotifier {
         active: active,
       );
 
+      await _loadDistributors();
+
       return true;
     } on ArgumentError catch (error) {
-      _errorMessage = error.message?.toString();
+      _errorMessage =
+          error.message?.toString();
+
       return false;
     } on StateError catch (error) {
-      _errorMessage = error.message.toString();
+      _errorMessage =
+          error.message.toString();
+
       return false;
-    } catch (_) {
-      _errorMessage = 'تعذر تعديل الموزع.';
+    } catch (error) {
+      _errorMessage =
+          'تعذر تعديل الموزع.\n$error';
+
       return false;
     } finally {
       _setLoading(false);
     }
   }
 
-  Future<bool> delete(String id) async {
+  // =========================================================
+  // DELETE
+  // =========================================================
+
+  Future<bool> delete(
+    String id,
+  ) async {
     _setLoading(true);
+
     _errorMessage = null;
 
     try {
-      await _repository.delete(id);
+      await _repository.delete(
+        id,
+      );
+
+      await _loadDistributors();
+
       return true;
     } on ArgumentError catch (error) {
-      _errorMessage = error.message?.toString();
+      _errorMessage =
+          error.message?.toString();
+
       return false;
-    } catch (_) {
-      _errorMessage = 'تعذر حذف الموزع.';
+    } catch (error) {
+      _errorMessage =
+          'تعذر حذف الموزع.\n$error';
+
       return false;
     } finally {
       _setLoading(false);
     }
   }
 
-  Distributor? findById(String id) {
-    final normalizedId = id.trim();
+  // =========================================================
+  // FIND
+  // =========================================================
 
-    for (final distributor in _distributors) {
-      if (distributor.id == normalizedId) {
+  Distributor? findById(
+    String id,
+  ) {
+    final normalizedId =
+        id.trim();
+
+    for (final distributor
+        in _distributors) {
+      if (distributor.id ==
+          normalizedId) {
         return distributor;
       }
     }
@@ -161,19 +295,36 @@ class DistributorController extends ChangeNotifier {
     return null;
   }
 
+  // =========================================================
+  // CLEAR ERROR
+  // =========================================================
+
   void clearError() {
     _errorMessage = null;
+
     notifyListeners();
   }
 
-  void _setLoading(bool value) {
+  // =========================================================
+  // LOADING
+  // =========================================================
+
+  void _setLoading(
+    bool value,
+  ) {
     _isLoading = value;
+
     notifyListeners();
   }
+
+  // =========================================================
+  // DISPOSE
+  // =========================================================
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _refreshTimer?.cancel();
+
     super.dispose();
   }
 }
