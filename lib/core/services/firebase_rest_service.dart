@@ -28,10 +28,6 @@ class FirebaseRestService {
 
   static String? get token => _session?.idToken;
 
-  // =========================================================
-  // SIGN IN
-  // =========================================================
-
   static Future<FirebaseRestSession?> signIn({
     required String email,
     required String password,
@@ -88,24 +84,14 @@ class FirebaseRestService {
       _session = result;
 
       return result;
-    } on TimeoutException {
-      return null;
     } catch (_) {
       return null;
     }
   }
 
-  // =========================================================
-  // SIGN OUT
-  // =========================================================
-
   static void signOut() {
     _session = null;
   }
-
-  // =========================================================
-  // URLS
-  // =========================================================
 
   static Uri documentUrl(
     String collection,
@@ -113,9 +99,8 @@ class FirebaseRestService {
   ) {
     return Uri.parse(
       'https://firestore.googleapis.com/v1/'
-      'projects/$projectId/'
-      'databases/(default)/documents/'
-      '$collection/$documentId',
+      'projects/$projectId/databases/(default)/'
+      'documents/$collection/$documentId',
     );
   }
 
@@ -124,33 +109,30 @@ class FirebaseRestService {
   ) {
     return Uri.parse(
       'https://firestore.googleapis.com/v1/'
-      'projects/$projectId/'
-      'databases/(default)/documents/'
-      '$collection',
+      'projects/$projectId/databases/(default)/'
+      'documents/$collection',
     );
   }
 
-  // =========================================================
-  // HEADERS
-  // =========================================================
+  static Uri runQueryUrl() {
+    return Uri.parse(
+      'https://firestore.googleapis.com/v1/'
+      'projects/$projectId/databases/(default)/'
+      'documents:runQuery',
+    );
+  }
 
   static Map<String, String> get authHeaders {
     final value = token;
 
     return <String, String>{
       'Content-Type': 'application/json',
-      if (value != null &&
-          value.trim().isNotEmpty)
+      if (value != null && value.isNotEmpty)
         'Authorization': 'Bearer $value',
     };
   }
 
-  // =========================================================
-  // GET DOCUMENT
-  // =========================================================
-
-  static Future<Map<String, dynamic>?>
-      getDocument({
+  static Future<Map<String, dynamic>?> getDocument({
     required String collection,
     required String documentId,
   }) async {
@@ -173,14 +155,14 @@ class FirebaseRestService {
     if (response.statusCode < 200 ||
         response.statusCode >= 300) {
       throw StateError(
-        'Firestore REST get document error: '
-        '${response.statusCode} '
-        '${response.body}',
+        'Firestore get document error: '
+        '${response.statusCode} ${response.body}',
       );
     }
 
-    final decoded =
-        jsonDecode(response.body);
+    final decoded = jsonDecode(
+      response.body,
+    );
 
     if (decoded is! Map<String, dynamic>) {
       return null;
@@ -188,10 +170,6 @@ class FirebaseRestService {
 
     return decoded;
   }
-
-  // =========================================================
-  // GET COLLECTION
-  // =========================================================
 
   static Future<List<Map<String, dynamic>>>
       getCollection({
@@ -218,14 +196,14 @@ class FirebaseRestService {
     if (response.statusCode < 200 ||
         response.statusCode >= 300) {
       throw StateError(
-        'Firestore REST get collection error: '
-        '${response.statusCode} '
-        '${response.body}',
+        'Firestore get collection error: '
+        '${response.statusCode} ${response.body}',
       );
     }
 
-    final decoded =
-        jsonDecode(response.body);
+    final decoded = jsonDecode(
+      response.body,
+    );
 
     if (decoded is! Map<String, dynamic>) {
       return <Map<String, dynamic>>[];
@@ -251,9 +229,163 @@ class FirebaseRestService {
         );
   }
 
-  // =========================================================
-  // DOCUMENT ID
-  // =========================================================
+  static Future<List<Map<String, dynamic>>>
+      runQuery({
+    required String collection,
+    String? distributorId,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int limit = 500,
+  }) async {
+    final filters =
+        <Map<String, dynamic>>[];
+
+    if (distributorId != null &&
+        distributorId.trim().isNotEmpty) {
+      filters.add(
+        {
+          'fieldFilter': {
+            'field': {
+              'fieldPath': 'distributorId',
+            },
+            'op': 'EQUAL',
+            'value': {
+              'stringValue':
+                  distributorId.trim(),
+            },
+          },
+        },
+      );
+    }
+
+    if (fromDate != null) {
+      filters.add(
+        {
+          'fieldFilter': {
+            'field': {
+              'fieldPath': 'recordedAt',
+            },
+            'op':
+                'GREATER_THAN_OR_EQUAL',
+            'value': {
+              'timestampValue': fromDate
+                  .toUtc()
+                  .toIso8601String(),
+            },
+          },
+        },
+      );
+    }
+
+    if (toDate != null) {
+      filters.add(
+        {
+          'fieldFilter': {
+            'field': {
+              'fieldPath': 'recordedAt',
+            },
+            'op':
+                'LESS_THAN_OR_EQUAL',
+            'value': {
+              'timestampValue': toDate
+                  .toUtc()
+                  .toIso8601String(),
+            },
+          },
+        },
+      );
+    }
+
+    Map<String, dynamic>? where;
+
+    if (filters.length == 1) {
+      where = filters.first;
+    } else if (filters.length > 1) {
+      where = {
+        'compositeFilter': {
+          'op': 'AND',
+          'filters': filters,
+        },
+      };
+    }
+
+    final structuredQuery =
+        <String, dynamic>{
+      'from': [
+        {
+          'collectionId': collection,
+        },
+      ],
+      if (where != null)
+        'where': where,
+      'orderBy': [
+        {
+          'field': {
+            'fieldPath': 'recordedAt',
+          },
+          'direction': 'DESCENDING',
+        },
+      ],
+      'limit': limit,
+    };
+
+    final response = await http
+        .post(
+          runQueryUrl(),
+          headers: authHeaders,
+          body: jsonEncode(
+            {
+              'structuredQuery':
+                  structuredQuery,
+            },
+          ),
+        )
+        .timeout(
+          const Duration(seconds: 30),
+        );
+
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300) {
+      throw StateError(
+        'Firestore query error: '
+        '${response.statusCode} ${response.body}',
+      );
+    }
+
+    final decoded =
+        jsonDecode(response.body);
+
+    if (decoded is! List) {
+      return <Map<String, dynamic>>[];
+    }
+
+    final result =
+        <Map<String, dynamic>>[];
+
+    for (final item in decoded) {
+      if (item is! Map) {
+        continue;
+      }
+
+      final map =
+          Map<String, dynamic>.from(
+        item,
+      );
+
+      final document =
+          map['document'];
+
+      if (document is Map) {
+        result.add(
+          Map<String, dynamic>.from(
+            document,
+          ),
+        );
+      }
+    }
+
+    return result;
+  }
 
   static String documentId(
     Map<String, dynamic> document,
@@ -265,19 +397,8 @@ class FirebaseRestService {
       return '';
     }
 
-    final parts =
-        name.split('/');
-
-    if (parts.isEmpty) {
-      return '';
-    }
-
-    return parts.last;
+    return name.split('/').last;
   }
-
-  // =========================================================
-  // DOCUMENT DATA
-  // =========================================================
 
   static Map<String, dynamic> documentData(
     Map<String, dynamic> document,
@@ -296,10 +417,6 @@ class FirebaseRestService {
     );
   }
 
-  // =========================================================
-  // DECODE FIELDS
-  // =========================================================
-
   static Map<String, dynamic> decodeFields(
     Map<String, dynamic>? fields,
   ) {
@@ -310,8 +427,7 @@ class FirebaseRestService {
     final result =
         <String, dynamic>{};
 
-    for (final entry
-        in fields.entries) {
+    for (final entry in fields.entries) {
       final rawValue =
           entry.value;
 
@@ -328,65 +444,38 @@ class FirebaseRestService {
     return result;
   }
 
-  // =========================================================
-  // DECODE VALUE
-  // =========================================================
-
   static dynamic _decodeValue(
     Map<String, dynamic> value,
   ) {
-    if (value.containsKey(
-      'stringValue',
-    )) {
+    if (value.containsKey('stringValue')) {
       return value['stringValue'];
     }
 
-    if (value.containsKey(
-      'booleanValue',
-    )) {
+    if (value.containsKey('booleanValue')) {
       return value['booleanValue'];
     }
 
-    if (value.containsKey(
-      'integerValue',
-    )) {
+    if (value.containsKey('integerValue')) {
       return int.tryParse(
-        value['integerValue']
-            .toString(),
+        value['integerValue'].toString(),
       );
     }
 
-    if (value.containsKey(
-      'doubleValue',
-    )) {
-      final raw =
-          value['doubleValue'];
-
-      if (raw is num) {
-        return raw.toDouble();
-      }
-
-      return double.tryParse(
-        raw?.toString() ?? '',
-      );
+    if (value.containsKey('doubleValue')) {
+      return (value['doubleValue'] as num?)
+          ?.toDouble();
     }
 
-    if (value.containsKey(
-      'timestampValue',
-    )) {
+    if (value.containsKey('timestampValue')) {
       return value['timestampValue']
           ?.toString();
     }
 
-    if (value.containsKey(
-      'nullValue',
-    )) {
+    if (value.containsKey('nullValue')) {
       return null;
     }
 
-    if (value.containsKey(
-      'mapValue',
-    )) {
+    if (value.containsKey('mapValue')) {
       final rawMap =
           value['mapValue'];
 
@@ -413,9 +502,7 @@ class FirebaseRestService {
       );
     }
 
-    if (value.containsKey(
-      'arrayValue',
-    )) {
+    if (value.containsKey('arrayValue')) {
       final rawArray =
           value['arrayValue'];
 
@@ -453,18 +540,13 @@ class FirebaseRestService {
     return null;
   }
 
-  // =========================================================
-  // ENCODE FIELDS
-  // =========================================================
-
   static Map<String, dynamic> encodeFields(
     Map<String, dynamic> data,
   ) {
     final result =
         <String, dynamic>{};
 
-    for (final entry
-        in data.entries) {
+    for (final entry in data.entries) {
       result[entry.key] =
           _encodeValue(
         entry.value,
@@ -474,81 +556,64 @@ class FirebaseRestService {
     return result;
   }
 
-  // =========================================================
-  // ENCODE VALUE
-  // =========================================================
-
   static Map<String, dynamic> _encodeValue(
     dynamic value,
   ) {
     if (value == null) {
-      return <String, dynamic>{
+      return {
         'nullValue': null,
       };
     }
 
     if (value is String) {
-      return <String, dynamic>{
+      return {
         'stringValue': value,
       };
     }
 
     if (value is bool) {
-      return <String, dynamic>{
+      return {
         'booleanValue': value,
       };
     }
 
     if (value is int) {
-      return <String, dynamic>{
+      return {
         'integerValue':
             value.toString(),
       };
     }
 
-    if (value is double) {
-      return <String, dynamic>{
-        'doubleValue': value,
-      };
-    }
-
     if (value is num) {
-      return <String, dynamic>{
+      return {
         'doubleValue':
             value.toDouble(),
       };
     }
 
     if (value is DateTime) {
-      return <String, dynamic>{
-        'timestampValue':
-            value
-                .toUtc()
-                .toIso8601String(),
+      return {
+        'timestampValue': value
+            .toUtc()
+            .toIso8601String(),
       };
     }
 
     if (value is Map) {
-      final converted =
-          Map<String, dynamic>.from(
-        value,
-      );
-
-      return <String, dynamic>{
-        'mapValue':
-            <String, dynamic>{
-          'fields':
-              encodeFields(
-            converted,
+      return {
+        'mapValue': {
+          'fields': encodeFields(
+            Map<String, dynamic>.from(
+              value,
+            ),
           ),
         },
       };
     }
 
     if (value is List) {
-      return <String, dynamic>{
-        'arrayValue':
-            <String, dynamic>{
+      return {
+        'arrayValue': {
           'values': value
               .map(
                 _encodeValue,
@@ -558,15 +623,11 @@ class FirebaseRestService {
       };
     }
 
-    return <String, dynamic>{
+    return {
       'stringValue':
           value.toString(),
     };
   }
-
-  // =========================================================
-  // CREATE DOCUMENT
-  // =========================================================
 
   static Future<String> createDocument({
     required String collection,
@@ -579,11 +640,9 @@ class FirebaseRestService {
           ),
           headers: authHeaders,
           body: jsonEncode(
-            <String, dynamic>{
+            {
               'fields':
-                  encodeFields(
-                data,
-              ),
+                  encodeFields(data),
             },
           ),
         )
@@ -595,28 +654,19 @@ class FirebaseRestService {
         response.statusCode >= 300) {
       throw StateError(
         'Firestore create failed: '
-        '${response.statusCode} '
-        '${response.body}',
+        '${response.statusCode} ${response.body}',
       );
     }
 
     final decoded =
         jsonDecode(response.body);
 
-    if (decoded is! Map<String, dynamic>) {
-      throw StateError(
-        'Firestore returned invalid create response.',
-      );
-    }
-
     return documentId(
-      decoded,
+      Map<String, dynamic>.from(
+        decoded,
+      ),
     );
   }
-
-  // =========================================================
-  // PATCH DOCUMENT
-  // =========================================================
 
   static Future<void> patchDocument({
     required String collection,
@@ -626,7 +676,8 @@ class FirebaseRestService {
     final fields =
         data.keys.toList();
 
-    var uri = documentUrl(
+    var uri =
+        documentUrl(
       collection,
       documentId,
     );
@@ -634,12 +685,12 @@ class FirebaseRestService {
     final queryParameters =
         <String, String>{};
 
-    for (var index = 0;
-        index < fields.length;
-        index++) {
+    for (var i = 0;
+        i < fields.length;
+        i++) {
       queryParameters[
-              'updateMask.fieldPaths[$index]'] =
-          fields[index];
+              'updateMask.fieldPaths[$i]'] =
+          fields[i];
     }
 
     uri = uri.replace(
@@ -652,11 +703,9 @@ class FirebaseRestService {
           uri,
           headers: authHeaders,
           body: jsonEncode(
-            <String, dynamic>{
+            {
               'fields':
-                  encodeFields(
-                data,
-              ),
+                  encodeFields(data),
             },
           ),
         )
@@ -668,15 +717,10 @@ class FirebaseRestService {
         response.statusCode >= 300) {
       throw StateError(
         'Firestore update failed: '
-        '${response.statusCode} '
-        '${response.body}',
+        '${response.statusCode} ${response.body}',
       );
     }
   }
-
-  // =========================================================
-  // DELETE DOCUMENT
-  // =========================================================
 
   static Future<void> deleteDocument({
     required String collection,
@@ -698,8 +742,7 @@ class FirebaseRestService {
         response.statusCode != 204) {
       throw StateError(
         'Firestore delete failed: '
-        '${response.statusCode} '
-        '${response.body}',
+        '${response.statusCode} ${response.body}',
       );
     }
   }
