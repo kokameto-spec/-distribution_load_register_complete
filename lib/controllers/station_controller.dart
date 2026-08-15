@@ -7,120 +7,415 @@ import '../models/station_model.dart';
 import '../repositories/station_repository.dart';
 
 class StationController extends ChangeNotifier {
-  StationController({StationRepository? repository})
-      : _repository = repository ?? StationRepository();
+  StationController({
+    StationRepository? repository,
+  }) : _repository =
+            repository ?? StationRepository();
 
   final StationRepository _repository;
-  StreamSubscription<List<Station>>? _subscription;
 
-  List<Station> _stations = <Station>[];
+  StreamSubscription<List<Station>>?
+      _subscription;
+
+  List<Station> _stations =
+      <Station>[];
+
   bool _isLoading = false;
+  bool _isListening = false;
+
   String? _errorMessage;
 
-  List<Station> get stations => List<Station>.unmodifiable(_stations);
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
-  bool get isListening => _subscription != null;
+  // =========================================================
+  // GETTERS
+  // =========================================================
 
-  void startListening() {
-    _subscription?.cancel();
+  List<Station> get stations {
+    return List<Station>.unmodifiable(
+      _stations,
+    );
+  }
+
+  bool get isLoading =>
+      _isLoading;
+
+  bool get isListening =>
+      _isListening;
+
+  String? get errorMessage =>
+      _errorMessage;
+
+  // =========================================================
+  // START LISTENING
+  // =========================================================
+
+  Future<void> startListening() async {
+    if (_isListening) {
+      return;
+    }
+
+    await _subscription?.cancel();
+
+    _subscription = null;
+
+    _isListening = true;
     _isLoading = true;
     _errorMessage = null;
+
     notifyListeners();
 
-    _subscription = _repository.watchAll().listen(
+    final firstValue =
+        Completer<void>();
+
+    _subscription =
+        _repository
+            .watchAll()
+            .listen(
       (items) {
         _stations = items;
+
         _isLoading = false;
+        _isListening = true;
         _errorMessage = null;
+
         notifyListeners();
+
+        if (!firstValue.isCompleted) {
+          firstValue.complete();
+        }
       },
       onError: (Object error) {
         _isLoading = false;
-        _errorMessage = error is FirebaseException
-            ? 'تعذر تحميل المحطات من Firebase.\n${error.code}: ${error.message ?? ''}'
-            : 'تعذر تحميل محطات المحولات.\n$error';
-        debugPrint('Station stream error: $error');
+
+        _errorMessage =
+            _errorText(
+          error,
+        );
+
         notifyListeners();
+
+        if (!firstValue.isCompleted) {
+          firstValue.complete();
+        }
+      },
+      onDone: () {
+        _isListening = false;
+
+        notifyListeners();
+
+        if (!firstValue.isCompleted) {
+          firstValue.complete();
+        }
+      },
+    );
+
+    /*
+     * startListening لن يعلق للأبد
+     * إذا الإنترنت بطيء أو الخدمة لا ترد.
+     */
+    try {
+      await firstValue.future.timeout(
+        const Duration(
+          seconds: 25,
+        ),
+      );
+    } on TimeoutException {
+      _isLoading = false;
+
+      _errorMessage =
+          'انتهت مهلة تحميل بيانات المحطات. '
+          'تحقق من الإنترنت ثم أعد المحاولة.';
+
+      notifyListeners();
+    }
+  }
+
+  // =========================================================
+  // REFRESH
+  // =========================================================
+
+  Future<void> refresh() async {
+    await stopListening();
+
+    await startListening();
+  }
+
+  // =========================================================
+  // CREATE
+  // =========================================================
+
+  Future<bool> createStation({
+    required String name,
+    required List<StationTransformer>
+        transformers,
+  }) async {
+    return _run(
+      () async {
+        await _repository.create(
+          name:
+              name,
+          transformers:
+              transformers,
+        );
       },
     );
   }
 
-  Future<bool> createStation({
-    required String name,
-    required List<StationTransformer> transformers,
-  }) {
-    return _run(() async {
-      final id = await _repository.create(
-        name: name,
-        transformers: transformers,
-      );
-      debugPrint('Station created successfully: $id');
-    });
-  }
+  // =========================================================
+  // UPDATE
+  // =========================================================
 
   Future<bool> updateStation({
     required Station station,
     required String name,
     required bool active,
-    required List<StationTransformer> transformers,
-  }) {
-    return _run(() async {
-      await _repository.update(
-        id: station.id,
-        name: name,
-        active: active,
-        transformers: transformers,
-      );
-    });
+    required List<StationTransformer>
+        transformers,
+  }) async {
+    return _run(
+      () async {
+        await _repository.update(
+          id:
+              station.id,
+          name:
+              name,
+          active:
+              active,
+          transformers:
+              transformers,
+        );
+      },
+    );
   }
 
-  Future<bool> deleteStation(String id) {
-    return _run(() => _repository.delete(id));
+  // =========================================================
+  // DELETE
+  // =========================================================
+
+  Future<bool> deleteStation(
+    String id,
+  ) async {
+    return _run(
+      () async {
+        await _repository.delete(
+          id,
+        );
+      },
+    );
   }
 
-  Future<bool> _run(Future<void> Function() operation) async {
+  // =========================================================
+  // RUN OPERATION
+  // =========================================================
+
+  Future<bool> _run(
+    Future<void> Function()
+        operation,
+  ) async {
+    if (_isLoading) {
+      return false;
+    }
+
     _isLoading = true;
     _errorMessage = null;
+
     notifyListeners();
 
     try {
-      await operation();
+      await operation().timeout(
+        const Duration(
+          seconds: 30,
+        ),
+      );
+
+      /*
+       * على Windows الـstream يعمل Polling،
+       * ولذلك نعيد تحميل القائمة فورًا
+       * بدل انتظار دورة التحديث التالية.
+       */
+      await refresh();
+
       return true;
+    } on TimeoutException {
+      _errorMessage =
+          'انتهت مهلة تنفيذ العملية. '
+          'تحقق من الاتصال بالإنترنت.';
+
+      return false;
     } on ArgumentError catch (error) {
-      _errorMessage = error.message?.toString() ?? 'بيانات غير صحيحة.';
+      _errorMessage =
+          error.message
+                  ?.toString() ??
+              'بيانات المحطة غير صحيحة.';
+
+      return false;
+    } on StateError catch (error) {
+      _errorMessage =
+          error.message.toString();
+
       return false;
     } on FirebaseException catch (error) {
-      debugPrint(
-        'Station FirebaseException: code=${error.code}, message=${error.message}',
+      _errorMessage =
+          _firebaseError(
+        error,
       );
-      if (error.code == 'permission-denied') {
-        _errorMessage = 'لا توجد صلاحية لحفظ بيانات المحطة.';
-      } else if (error.code == 'unavailable') {
-        _errorMessage = 'تعذر الاتصال بـ Firebase. تحقق من الإنترنت.';
-      } else {
-        _errorMessage = 'خطأ Firebase: ${error.code}\n${error.message ?? ''}';
-      }
+
       return false;
-    } catch (error, stackTrace) {
-      debugPrint('Station unexpected error: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      _errorMessage = 'تعذر حفظ بيانات المحطة.\n$error';
+    } catch (error) {
+      _errorMessage =
+          'تعذر تنفيذ العملية على المحطة.\n$error';
+
       return false;
     } finally {
       _isLoading = false;
+
       notifyListeners();
     }
   }
 
+  // =========================================================
+  // FIND
+  // =========================================================
+
+  Station? findById(
+    String id,
+  ) {
+    final normalizedId =
+        id.trim();
+
+    for (final station
+        in _stations) {
+      if (station.id ==
+          normalizedId) {
+        return station;
+      }
+    }
+
+    return null;
+  }
+
+  // =========================================================
+  // ACTIVE STATIONS
+  // =========================================================
+
+  List<Station> get activeStations {
+    return _stations
+        .where(
+          (station) =>
+              station.active,
+        )
+        .toList(
+          growable: false,
+        );
+  }
+
+  // =========================================================
+  // STOP
+  // =========================================================
+
   Future<void> stopListening() async {
     await _subscription?.cancel();
+
     _subscription = null;
+
+    _isListening = false;
+    _isLoading = false;
+
+    notifyListeners();
   }
+
+  // =========================================================
+  // CLEAR ERROR
+  // =========================================================
+
+  void clearError() {
+    _errorMessage = null;
+
+    notifyListeners();
+  }
+
+  // =========================================================
+  // ERROR TEXT
+  // =========================================================
+
+  String _errorText(
+    Object error,
+  ) {
+    if (error is FirebaseException) {
+      return _firebaseError(
+        error,
+      );
+    }
+
+    final text =
+        error.toString().trim();
+
+    if (text.startsWith(
+      'Bad state:',
+    )) {
+      return text
+          .substring(
+            'Bad state:'.length,
+          )
+          .trim();
+    }
+
+    if (text.startsWith(
+      'Exception:',
+    )) {
+      return text
+          .substring(
+            'Exception:'.length,
+          )
+          .trim();
+    }
+
+    if (text.contains(
+      'PERMISSION_DENIED',
+    )) {
+      return 'لا توجد صلاحية لقراءة بيانات المحطات.';
+    }
+
+    if (text.contains(
+      'UNAUTHENTICATED',
+    )) {
+      return 'انتهت جلسة تسجيل الدخول. '
+          'سجل الدخول مرة أخرى.';
+    }
+
+    return text.isEmpty
+        ? 'تعذر تحميل بيانات المحطات.'
+        : text;
+  }
+
+  String _firebaseError(
+    FirebaseException error,
+  ) {
+    switch (error.code) {
+      case 'permission-denied':
+        return 'لا توجد صلاحية لتنفيذ العملية على المحطات.';
+
+      case 'unavailable':
+        return 'تعذر الاتصال بقاعدة البيانات. '
+            'تحقق من الإنترنت.';
+
+      case 'unauthenticated':
+        return 'انتهت جلسة تسجيل الدخول. '
+            'سجل الدخول مرة أخرى.';
+
+      default:
+        return error.message ??
+            'حدث خطأ في قاعدة البيانات.';
+    }
+  }
+
+  // =========================================================
+  // DISPOSE
+  // =========================================================
 
   @override
   void dispose() {
     _subscription?.cancel();
+
     super.dispose();
   }
 }
