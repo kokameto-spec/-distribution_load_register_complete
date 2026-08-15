@@ -6,43 +6,107 @@ import '../../controllers/auth_controller.dart';
 import '../../controllers/distributor_controller.dart';
 import '../../controllers/load_records_controller.dart';
 import '../../core/services/report_pdf_service.dart';
+import '../../models/distributor_model.dart';
+import '../../models/load_record.dart';
 import '../../models/saved_report.dart';
 import '../../models/user_role.dart';
 import '../../repositories/saved_report_repository.dart';
 
-class SavedReportsScreen extends StatefulWidget {
-  const SavedReportsScreen({super.key});
+class SavedReportsScreen
+    extends StatefulWidget {
+  const SavedReportsScreen({
+    super.key,
+  });
 
   @override
-  State<SavedReportsScreen> createState() =>
-      _SavedReportsScreenState();
+  State<SavedReportsScreen>
+      createState() =>
+          _SavedReportsScreenState();
 }
 
-class _SavedReportsScreenState extends State<SavedReportsScreen> {
+class _SavedReportsScreenState
+    extends State<SavedReportsScreen> {
   final SavedReportRepository _repository =
       SavedReportRepository();
+
+  late Stream<List<SavedReport>>
+      _reportsStream;
 
   bool _busy = false;
 
   // =========================================================
-  // تنسيق التاريخ
+  // INIT
   // =========================================================
 
-  String _formatDate(DateTime value) {
-    return DateFormat('yyyy/MM/dd').format(value);
+  @override
+  void initState() {
+    super.initState();
+
+    _reportsStream =
+        _repository.watchAll();
   }
 
-  String _formatDateTime(DateTime value) {
+  // =========================================================
+  // REFRESH
+  // =========================================================
+
+  Future<void> _refresh() async {
+    setState(() {
+      _reportsStream =
+          _repository.watchAll();
+    });
+
+    await Future<void>.delayed(
+      const Duration(
+        milliseconds: 200,
+      ),
+    );
+  }
+
+  // =========================================================
+  // FORMAT
+  // =========================================================
+
+  String _formatDate(
+    DateTime value,
+  ) {
+    return DateFormat(
+      'yyyy/MM/dd',
+    ).format(value);
+  }
+
+  String _formatDateTime(
+    DateTime value,
+  ) {
     return DateFormat(
       'yyyy/MM/dd - HH:mm',
     ).format(value);
   }
 
+  String _hourText(
+    int hour,
+  ) {
+    if (hour < 0 ||
+        hour > 23) {
+      return 'كل الساعات';
+    }
+
+    final text =
+        hour.toString().padLeft(
+      2,
+      '0',
+    );
+
+    return '$text:00 - $text:59';
+  }
+
   // =========================================================
-  // اسم نوع التقرير
+  // TYPE
   // =========================================================
 
-  String _reportTypeName(SavedReport report) {
+  String _reportTypeName(
+    SavedReport report,
+  ) {
     switch (report.reportType) {
       case 'all_distributors_hourly':
         return 'جميع الموزعات';
@@ -59,25 +123,29 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
   }
 
   // =========================================================
-  // التأكد أن المستخدم رئيس
+  // PRESIDENT
   // =========================================================
 
   bool _isPresident() {
     final user =
-        context.read<AuthController>().currentUser;
+        context
+            .read<AuthController>()
+            .currentUser;
 
     return user != null &&
-        user.role == UserRole.president;
+        user.role ==
+            UserRole.president;
   }
 
   // =========================================================
-  // تعديل التقرير
+  // EDIT
   // =========================================================
 
   Future<void> _editReport(
     SavedReport report,
   ) async {
-    if (!_isPresident()) {
+    if (!_isPresident() ||
+        _busy) {
       return;
     }
 
@@ -92,32 +160,48 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
     );
 
     final result =
-        await showDialog<Map<String, String>>(
+        await showDialog<
+            Map<String, String>>(
       context: context,
-      builder: (dialogContext) {
+      builder:
+          (dialogContext) {
         return AlertDialog(
-          title: const Text(
+          title:
+              const Text(
             'تعديل التقرير المحفوظ',
           ),
           content: SizedBox(
             width: 430,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم التقرير',
-                    border: OutlineInputBorder(),
+                  controller:
+                      titleController,
+                  decoration:
+                      const InputDecoration(
+                    labelText:
+                        'اسم التقرير',
+                    border:
+                        OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
+
+                const SizedBox(
+                  height: 12,
+                ),
+
                 TextField(
-                  controller: notesController,
+                  controller:
+                      notesController,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'ملاحظات',
-                    border: OutlineInputBorder(),
+                  decoration:
+                      const InputDecoration(
+                    labelText:
+                        'ملاحظات',
+                    border:
+                        OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -130,19 +214,26 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
                   dialogContext,
                 );
               },
-              child: const Text('إلغاء'),
+              child:
+                  const Text(
+                'إلغاء',
+              ),
             ),
+
             FilledButton.icon(
               onPressed: () {
                 final title =
-                    titleController.text.trim();
+                    titleController
+                        .text
+                        .trim();
 
                 if (title.isEmpty) {
                   ScaffoldMessenger.of(
                     dialogContext,
                   ).showSnackBar(
                     const SnackBar(
-                      content: Text(
+                      content:
+                          Text(
                         'اكتب اسم التقرير.',
                       ),
                     ),
@@ -155,14 +246,20 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
                   dialogContext,
                   <String, String>{
                     'title':
-                        titleController.text.trim(),
+                        title,
                     'notes':
-                        notesController.text.trim(),
+                        notesController
+                            .text
+                            .trim(),
                   },
                 );
               },
-              icon: const Icon(Icons.save),
-              label: const Text(
+              icon:
+                  const Icon(
+                Icons.save,
+              ),
+              label:
+                  const Text(
                 'حفظ التعديل',
               ),
             ),
@@ -171,19 +268,25 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
       },
     );
 
-    if (result == null || !mounted) {
+    if (result == null ||
+        !mounted) {
       titleController.dispose();
       notesController.dispose();
+
       return;
     }
 
     final user =
-        context.read<AuthController>().currentUser;
+        context
+            .read<AuthController>()
+            .currentUser;
 
     if (user == null ||
-        user.role != UserRole.president) {
+        user.role !=
+            UserRole.president) {
       titleController.dispose();
       notesController.dispose();
+
       return;
     }
 
@@ -194,19 +297,27 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
     try {
       await _repository.update(
         report: report,
-        title: result['title'] ?? '',
-        notes: result['notes'] ?? '',
-        performedByUid: user.uid,
-        performedByCode: user.code,
+        title:
+            result['title'] ?? '',
+        notes:
+            result['notes'] ?? '',
+        performedByUid:
+            user.uid,
+        performedByCode:
+            user.code,
       );
+
+      await _refresh();
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
-          content: Text(
+          content:
+              Text(
             'تم تعديل التقرير بنجاح.',
           ),
         ),
@@ -216,9 +327,11 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
-          content: Text(
+          content:
+              Text(
             'تعذر تعديل التقرير:\n$error',
           ),
         ),
@@ -236,25 +349,29 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
   }
 
   // =========================================================
-  // حذف التقرير
+  // DELETE
   // =========================================================
 
   Future<void> _deleteReport(
     SavedReport report,
   ) async {
-    if (!_isPresident()) {
+    if (!_isPresident() ||
+        _busy) {
       return;
     }
 
     final confirmed =
         await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
+      builder:
+          (dialogContext) {
         return AlertDialog(
-          title: const Text(
+          title:
+              const Text(
             'حذف التقرير',
           ),
-          content: Text(
+          content:
+              Text(
             'هل تريد حذف التقرير؟\n\n'
             '${report.title}',
           ),
@@ -266,7 +383,10 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
                   false,
                 );
               },
-              child: const Text('إلغاء'),
+              child:
+                  const Text(
+                'إلغاء',
+              ),
             ),
             FilledButton.icon(
               onPressed: () {
@@ -275,25 +395,34 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
                   true,
                 );
               },
-              icon: const Icon(
-                Icons.delete_forever,
+              icon:
+                  const Icon(
+                Icons
+                    .delete_forever,
               ),
-              label: const Text('حذف'),
+              label:
+                  const Text(
+                'حذف',
+              ),
             ),
           ],
         );
       },
     );
 
-    if (confirmed != true || !mounted) {
+    if (confirmed != true ||
+        !mounted) {
       return;
     }
 
     final user =
-        context.read<AuthController>().currentUser;
+        context
+            .read<AuthController>()
+            .currentUser;
 
     if (user == null ||
-        user.role != UserRole.president) {
+        user.role !=
+            UserRole.president) {
       return;
     }
 
@@ -304,17 +433,23 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
     try {
       await _repository.delete(
         report: report,
-        performedByUid: user.uid,
-        performedByCode: user.code,
+        performedByUid:
+            user.uid,
+        performedByCode:
+            user.code,
       );
+
+      await _refresh();
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
-          content: Text(
+          content:
+              Text(
             'تم حذف التقرير بنجاح.',
           ),
         ),
@@ -324,9 +459,11 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
-          content: Text(
+          content:
+              Text(
             'تعذر حذف التقرير:\n$error',
           ),
         ),
@@ -341,41 +478,82 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
   }
 
   // =========================================================
-  // تحميل بيانات التقرير
+  // LOAD REPORT DATA
   // =========================================================
 
-  Future<List<dynamic>> _loadReportData(
+  Future<_SavedReportData>
+      _loadReportData(
     SavedReport report,
   ) async {
     final recordsController =
-        context.read<LoadRecordsController>();
+        context.read<
+            LoadRecordsController>();
 
     final distributorController =
-        context.read<DistributorController>();
+        context.read<
+            DistributorController>();
 
-    await recordsController.search(
-      distributorId:
-          report.isSingleDistributor
-              ? report.targetId
-              : null,
-      fromDate: report.fromDate,
-      toDate: report.toDate,
+    /*
+     * أهم تعديل هنا:
+     *
+     * تقرير جميع الموزعات + ساعة
+     * لا يستخدم search العادي.
+     *
+     * يستخدم البحث اليومي الجديد،
+     * وبالتالي لا ينزل كل ساعات الفترة.
+     */
+    if (report
+        .isAllDistributorsHourly) {
+      await recordsController
+          .searchAllDistributorsByHour(
+        fromDate:
+            report.fromDate,
+        toDate:
+            report.toDate,
+        hour:
+            report.hour,
+      );
+    } else {
+      await recordsController.search(
+        distributorId:
+            report.isSingleDistributor
+                ? report.targetId
+                : null,
+        fromDate:
+            report.fromDate,
+        toDate:
+            report.toDate,
+
+        /*
+         * للموزع الواحد نسمح
+         * بعدد أكبر من العرض العادي.
+         */
+        limit: 2000,
+      );
+    }
+
+    return _SavedReportData(
+      records:
+          List<LoadRecord>.from(
+        recordsController.records,
+      ),
+      distributors:
+          List<Distributor>.from(
+        distributorController
+            .distributors,
+      ),
     );
-
-    return <dynamic>[
-      recordsController.records,
-      distributorController.distributors,
-    ];
   }
 
   // =========================================================
-  // طباعة التقرير
+  // PRINT
   // =========================================================
 
   Future<void> _printReport(
     SavedReport report,
   ) async {
-    if (!_isPresident()) {
+    if (!_isPresident() ||
+        _busy) {
       return;
     }
 
@@ -385,41 +563,56 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
 
     try {
       final data =
-          await _loadReportData(report);
+          await _loadReportData(
+        report,
+      );
 
-      await ReportPdfService.printReport(
-        records: data[0],
-        distributors: data[1],
+      if (data.records.isEmpty) {
+        throw StateError(
+          'لا توجد بيانات ضمن فترة التقرير.',
+        );
+      }
 
+      await ReportPdfService
+          .printReport(
+        records:
+            data.records,
+        distributors:
+            data.distributors,
         selectedDistributorId:
             report.isSingleDistributor
                 ? report.targetId
                 : null,
-
         selectedDateTime:
             report.hour >= 0
                 ? DateTime(
-                    report.fromDate.year,
-                    report.fromDate.month,
-                    report.fromDate.day,
+                    report
+                        .fromDate.year,
+                    report
+                        .fromDate.month,
+                    report
+                        .fromDate.day,
                     report.hour,
                   )
                 : null,
-
-        fromDate: report.fromDate,
-        toDate: report.toDate,
-
+        fromDate:
+            report.fromDate,
+        toDate:
+            report.toDate,
         allDistributorsHourly:
-            report.isAllDistributorsHourly,
+            report
+                .isAllDistributorsHourly,
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
-          content: Text(
+          content:
+              Text(
             'تعذر طباعة التقرير:\n$error',
           ),
         ),
@@ -434,13 +627,14 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
   }
 
   // =========================================================
-  // مشاركة التقرير
+  // SHARE
   // =========================================================
 
   Future<void> _shareReport(
     SavedReport report,
   ) async {
-    if (!_isPresident()) {
+    if (!_isPresident() ||
+        _busy) {
       return;
     }
 
@@ -450,41 +644,56 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
 
     try {
       final data =
-          await _loadReportData(report);
+          await _loadReportData(
+        report,
+      );
 
-      await ReportPdfService.shareReport(
-        records: data[0],
-        distributors: data[1],
+      if (data.records.isEmpty) {
+        throw StateError(
+          'لا توجد بيانات ضمن فترة التقرير.',
+        );
+      }
 
+      await ReportPdfService
+          .shareReport(
+        records:
+            data.records,
+        distributors:
+            data.distributors,
         selectedDistributorId:
             report.isSingleDistributor
                 ? report.targetId
                 : null,
-
         selectedDateTime:
             report.hour >= 0
                 ? DateTime(
-                    report.fromDate.year,
-                    report.fromDate.month,
-                    report.fromDate.day,
+                    report
+                        .fromDate.year,
+                    report
+                        .fromDate.month,
+                    report
+                        .fromDate.day,
                     report.hour,
                   )
                 : null,
-
-        fromDate: report.fromDate,
-        toDate: report.toDate,
-
+        fromDate:
+            report.fromDate,
+        toDate:
+            report.toDate,
         allDistributorsHourly:
-            report.isAllDistributorsHourly,
+            report
+                .isAllDistributorsHourly,
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
-          content: Text(
+          content:
+              Text(
             'تعذر مشاركة التقرير:\n$error',
           ),
         ),
@@ -499,31 +708,17 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
   }
 
   // =========================================================
-  // بطاقة معلومات
-  // =========================================================
-
-  Widget _infoRow({
-    required IconData icon,
-    required String title,
-  }) {
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon),
-      title: Text(title),
-    );
-  }
-
-  // =========================================================
-  // الشاشة
+  // BUILD
   // =========================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final auth =
-        context.watch<AuthController>();
+        context.watch<
+            AuthController>();
 
-    // الرئيس فقط
     if (auth.currentUser?.role !=
         UserRole.president) {
       return const Scaffold(
@@ -537,60 +732,110 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title:
+            const Text(
           'التقارير المحفوظة',
         ),
+        actions: [
+          IconButton(
+            tooltip:
+                'تحديث',
+            onPressed:
+                _busy
+                    ? null
+                    : _refresh,
+            icon:
+                const Icon(
+              Icons.refresh,
+            ),
+          ),
+        ],
       ),
 
       body: Stack(
         children: [
-          StreamBuilder<List<SavedReport>>(
-            stream: _repository.watchAll(),
-
-            builder: (context, snapshot) {
-              // =============================================
-              // خطأ
-              // =============================================
-
+          StreamBuilder<
+              List<SavedReport>>(
+            stream:
+                _reportsStream,
+            builder:
+                (
+              context,
+              snapshot,
+            ) {
               if (snapshot.hasError) {
                 return Center(
-                  child: SingleChildScrollView(
+                  child:
+                      SingleChildScrollView(
                     padding:
-                        const EdgeInsets.all(24),
+                        const EdgeInsets
+                            .all(
+                      24,
+                    ),
                     child: Column(
                       mainAxisAlignment:
-                          MainAxisAlignment.center,
+                          MainAxisAlignment
+                              .center,
                       children: [
                         const Icon(
-                          Icons.error_outline,
-                          size: 64,
+                          Icons
+                              .error_outline,
+                          size:
+                              64,
                         ),
-                        const SizedBox(height: 16),
+
+                        const SizedBox(
+                          height:
+                              16,
+                        ),
+
                         const Text(
                           'تعذر تحميل التقارير المحفوظة',
-                          textAlign:
-                              TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
+                          style:
+                              TextStyle(
+                            fontSize:
+                                18,
                             fontWeight:
-                                FontWeight.bold,
+                                FontWeight
+                                    .bold,
                           ),
                         ),
-                        const SizedBox(height: 12),
+
+                        const SizedBox(
+                          height:
+                              12,
+                        ),
+
                         SelectableText(
                           '${snapshot.error}',
                           textAlign:
-                              TextAlign.center,
+                              TextAlign
+                                  .center,
+                        ),
+
+                        const SizedBox(
+                          height:
+                              16,
+                        ),
+
+                        FilledButton.icon(
+                          onPressed:
+                              _refresh,
+                          icon:
+                              const Icon(
+                            Icons
+                                .refresh,
+                          ),
+                          label:
+                              const Text(
+                            'إعادة المحاولة',
+                          ),
                         ),
                       ],
                     ),
                   ),
                 );
               }
-
-              // =============================================
-              // تحميل
-              // =============================================
 
               if (!snapshot.hasData) {
                 return const Center(
@@ -602,277 +847,70 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
               final reports =
                   snapshot.data!;
 
-              // =============================================
-              // لا توجد تقارير
-              // =============================================
-
               if (reports.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding:
-                        EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons
-                              .folder_copy_outlined,
-                          size: 72,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
+                return RefreshIndicator(
+                  onRefresh:
+                      _refresh,
+                  child: ListView(
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
+                    children:
+                        const [
+                      SizedBox(
+                        height:
+                            150,
+                      ),
+                      Icon(
+                        Icons
+                            .folder_copy_outlined,
+                        size:
+                            72,
+                      ),
+                      SizedBox(
+                        height:
+                            16,
+                      ),
+                      Center(
+                        child:
+                            Text(
                           'لا توجد تقارير محفوظة حتى الآن.',
-                          textAlign:
-                              TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               }
 
-              // =============================================
-              // قائمة التقارير
-              // =============================================
-
               return RefreshIndicator(
-                onRefresh: () async {
-                  await Future<void>.delayed(
-                    const Duration(
-                      milliseconds: 300,
-                    ),
-                  );
-                },
-                child: ListView.separated(
+                onRefresh:
+                    _refresh,
+                child:
+                    ListView.separated(
                   physics:
                       const AlwaysScrollableScrollPhysics(),
-
                   padding:
-                      const EdgeInsets.all(16),
-
+                      const EdgeInsets
+                          .fromLTRB(
+                    16,
+                    16,
+                    16,
+                    30,
+                  ),
                   itemCount:
                       reports.length,
-
                   separatorBuilder:
                       (_, __) =>
                           const SizedBox(
-                    height: 10,
+                    height:
+                        10,
                   ),
-
                   itemBuilder:
-                      (context, index) {
-                    final report =
-                        reports[index];
-
-                    return Card(
-                      clipBehavior:
-                          Clip.antiAlias,
-
-                      child: ExpansionTile(
-                        leading:
-                            const CircleAvatar(
-                          child: Icon(
-                            Icons
-                                .description_outlined,
-                          ),
-                        ),
-
-                        title: Text(
-                          report.title,
-                          style:
-                              const TextStyle(
-                            fontWeight:
-                                FontWeight.bold,
-                          ),
-                        ),
-
-                        subtitle: Text(
-                          '${_reportTypeName(report)}'
-                          '${report.targetName.isEmpty ? '' : ' — ${report.targetName}'}',
-                        ),
-
-                        childrenPadding:
-                            const EdgeInsets
-                                .fromLTRB(
-                          16,
-                          0,
-                          16,
-                          16,
-                        ),
-
-                        children: [
-                          const Divider(),
-
-                          _infoRow(
-                            icon:
-                                Icons.date_range,
-                            title:
-                                'من: ${_formatDate(report.fromDate)}',
-                          ),
-
-                          _infoRow(
-                            icon:
-                                Icons.event,
-                            title:
-                                'إلى: ${_formatDate(report.toDate)}',
-                          ),
-
-                          if (report.hour >=
-                              0)
-                            _infoRow(
-                              icon:
-                                  Icons.schedule,
-                              title:
-                                  'الساعة ${report.hour} (${report.hour.toString().padLeft(2, '0')}:00 - ${report.hour.toString().padLeft(2, '0')}:59)',
-                            ),
-
-                          if (report
-                              .targetName
-                              .isNotEmpty)
-                            _infoRow(
-                              icon: Icons
-                                  .account_tree_outlined,
-                              title:
-                                  'الموزع/الجهة: ${report.targetName}',
-                            ),
-
-                          if (report
-                              .notes
-                              .isNotEmpty)
-                            _infoRow(
-                              icon:
-                                  Icons.notes,
-                              title:
-                                  'ملاحظات: ${report.notes}',
-                            ),
-
-                          _infoRow(
-                            icon: Icons
-                                .calendar_today_outlined,
-                            title:
-                                'تاريخ الحفظ: ${_formatDateTime(report.createdAt)}',
-                          ),
-
-                          _infoRow(
-                            icon:
-                                Icons.history,
-                            title:
-                                'آخر تعديل: ${_formatDateTime(report.updatedAt)}',
-                          ),
-
-                          const Divider(),
-
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            alignment:
-                                WrapAlignment
-                                    .center,
-                            children: [
-                              // =============================
-                              // تعديل
-                              // =============================
-
-                              OutlinedButton
-                                  .icon(
-                                onPressed:
-                                    _busy
-                                        ? null
-                                        : () {
-                                            _editReport(
-                                              report,
-                                            );
-                                          },
-                                icon:
-                                    const Icon(
-                                  Icons.edit,
-                                ),
-                                label:
-                                    const Text(
-                                  'تعديل',
-                                ),
-                              ),
-
-                              // =============================
-                              // طباعة
-                              // =============================
-
-                              OutlinedButton
-                                  .icon(
-                                onPressed:
-                                    _busy
-                                        ? null
-                                        : () {
-                                            _printReport(
-                                              report,
-                                            );
-                                          },
-                                icon:
-                                    const Icon(
-                                  Icons.print,
-                                ),
-                                label:
-                                    const Text(
-                                  'طباعة',
-                                ),
-                              ),
-
-                              // =============================
-                              // مشاركة
-                              // =============================
-
-                              OutlinedButton
-                                  .icon(
-                                onPressed:
-                                    _busy
-                                        ? null
-                                        : () {
-                                            _shareReport(
-                                              report,
-                                            );
-                                          },
-                                icon:
-                                    const Icon(
-                                  Icons.share,
-                                ),
-                                label:
-                                    const Text(
-                                  'مشاركة',
-                                ),
-                              ),
-
-                              // =============================
-                              // حذف
-                              // =============================
-
-                              FilledButton
-                                  .icon(
-                                onPressed:
-                                    _busy
-                                        ? null
-                                        : () {
-                                            _deleteReport(
-                                              report,
-                                            );
-                                          },
-                                icon:
-                                    const Icon(
-                                  Icons
-                                      .delete_forever,
-                                ),
-                                label:
-                                    const Text(
-                                  'حذف',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                      (
+                    context,
+                    index,
+                  ) {
+                    return _buildReportCard(
+                      reports[index],
                     );
                   },
                 ),
@@ -880,18 +918,42 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
             },
           ),
 
-          // =============================================
-          // انتظار
-          // =============================================
-
           if (_busy)
-            const Positioned.fill(
-              child: ColoredBox(
+            Positioned.fill(
+              child:
+                  ColoredBox(
                 color:
-                    Color(0x22000000),
-                child: Center(
+                    Colors.black26,
+                child:
+                    const Center(
                   child:
-                      CircularProgressIndicator(),
+                      Card(
+                    child:
+                        Padding(
+                      padding:
+                          EdgeInsets
+                              .all(
+                        24,
+                      ),
+                      child:
+                          Column(
+                        mainAxisSize:
+                            MainAxisSize
+                                .min,
+                        children:
+                            [
+                          CircularProgressIndicator(),
+                          SizedBox(
+                            height:
+                                14,
+                          ),
+                          Text(
+                            'جارٍ تنفيذ العملية...',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -899,4 +961,259 @@ class _SavedReportsScreenState extends State<SavedReportsScreen> {
       ),
     );
   }
+
+  // =========================================================
+  // CARD
+  // =========================================================
+
+  Widget _buildReportCard(
+    SavedReport report,
+  ) {
+    return Card(
+      clipBehavior:
+          Clip.antiAlias,
+      child:
+          ExpansionTile(
+        leading:
+            const CircleAvatar(
+          child:
+              Icon(
+            Icons
+                .description_outlined,
+          ),
+        ),
+
+        title:
+            Text(
+          report.title,
+          style:
+              const TextStyle(
+            fontWeight:
+                FontWeight.bold,
+          ),
+        ),
+
+        subtitle:
+            Text(
+          '${_reportTypeName(report)}\n'
+          '${_formatDate(report.fromDate)}'
+          ' إلى '
+          '${_formatDate(report.toDate)}',
+        ),
+
+        childrenPadding:
+            const EdgeInsets
+                .fromLTRB(
+          16,
+          0,
+          16,
+          16,
+        ),
+
+        children: [
+          _infoRow(
+            icon:
+                Icons
+                    .category_outlined,
+            title:
+                'نوع التقرير',
+            value:
+                _reportTypeName(
+              report,
+            ),
+          ),
+
+          if (report.targetName
+              .trim()
+              .isNotEmpty)
+            _infoRow(
+              icon:
+                  Icons
+                      .account_tree_outlined,
+              title:
+                  'الجهة',
+              value:
+                  report.targetName,
+            ),
+
+          _infoRow(
+            icon:
+                Icons
+                    .date_range,
+            title:
+                'الفترة',
+            value:
+                '${_formatDate(report.fromDate)}'
+                ' إلى '
+                '${_formatDate(report.toDate)}',
+          ),
+
+          if (report.hour >= 0)
+            _infoRow(
+              icon:
+                  Icons.schedule,
+              title:
+                  'الساعة',
+              value:
+                  _hourText(
+                report.hour,
+              ),
+            ),
+
+          _infoRow(
+            icon:
+                Icons
+                    .access_time,
+            title:
+                'آخر تعديل',
+            value:
+                _formatDateTime(
+              report.updatedAt,
+            ),
+          ),
+
+          if (report.notes
+              .trim()
+              .isNotEmpty)
+            _infoRow(
+              icon:
+                  Icons.notes,
+              title:
+                  'ملاحظات',
+              value:
+                  report.notes,
+            ),
+
+          const Divider(),
+
+          Wrap(
+            spacing:
+                8,
+            runSpacing:
+                8,
+            alignment:
+                WrapAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
+                    _busy
+                        ? null
+                        : () =>
+                            _editReport(
+                              report,
+                            ),
+                icon:
+                    const Icon(
+                  Icons.edit,
+                ),
+                label:
+                    const Text(
+                  'تعديل',
+                ),
+              ),
+
+              OutlinedButton.icon(
+                onPressed:
+                    _busy
+                        ? null
+                        : () =>
+                            _printReport(
+                              report,
+                            ),
+                icon:
+                    const Icon(
+                  Icons.print_outlined,
+                ),
+                label:
+                    const Text(
+                  'طباعة',
+                ),
+              ),
+
+              OutlinedButton.icon(
+                onPressed:
+                    _busy
+                        ? null
+                        : () =>
+                            _shareReport(
+                              report,
+                            ),
+                icon:
+                    const Icon(
+                  Icons.share_outlined,
+                ),
+                label:
+                    const Text(
+                  'مشاركة',
+                ),
+              ),
+
+              FilledButton.icon(
+                onPressed:
+                    _busy
+                        ? null
+                        : () =>
+                            _deleteReport(
+                              report,
+                            ),
+                icon:
+                    const Icon(
+                  Icons
+                      .delete_outline,
+                ),
+                label:
+                    const Text(
+                  'حذف',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return ListTile(
+      dense:
+          true,
+      contentPadding:
+          EdgeInsets.zero,
+      leading:
+          Icon(
+        icon,
+      ),
+      title:
+          Text(
+        title,
+        style:
+            const TextStyle(
+          fontWeight:
+              FontWeight.bold,
+        ),
+      ),
+      subtitle:
+          Text(
+        value,
+      ),
+    );
+  }
+}
+
+// ===========================================================
+// DATA HOLDER
+// ===========================================================
+
+class _SavedReportData {
+  const _SavedReportData({
+    required this.records,
+    required this.distributors,
+  });
+
+  final List<LoadRecord> records;
+  final List<Distributor> distributors;
 }
