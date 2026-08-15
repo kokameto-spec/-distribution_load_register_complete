@@ -6,26 +6,31 @@ import '../../controllers/audit_log_controller.dart';
 import '../../models/audit_log.dart';
 
 class AuditLogsScreen extends StatefulWidget {
-  const AuditLogsScreen({super.key});
+  const AuditLogsScreen({
+    super.key,
+  });
 
   @override
   State<AuditLogsScreen> createState() =>
       _AuditLogsScreenState();
 }
 
-class _AuditLogsScreenState extends State<AuditLogsScreen> {
+class _AuditLogsScreenState
+    extends State<AuditLogsScreen> {
   final TextEditingController _codeController =
-  TextEditingController();
+      TextEditingController();
 
   String? _selectedAction;
+
   DateTime? _fromDate;
   DateTime? _toDate;
 
   static const Map<String, String> _actionNames =
-  <String, String>{
+      <String, String>{
     'create_user': 'إنشاء مستخدم',
     'update_user': 'تعديل مستخدم',
-    'change_user_password': 'تغيير كلمة المرور',
+    'change_user_password':
+        'تغيير كلمة المرور',
     'activate_user': 'تفعيل مستخدم',
     'deactivate_user': 'إيقاف مستخدم',
     'delete_user': 'حذف مستخدم',
@@ -36,39 +41,60 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     'share_report': 'مشاركة تقرير',
   };
 
+  // =========================================================
+  // INIT
+  // =========================================================
+
   @override
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        if (!mounted) {
+          return;
+        }
 
-      final controller =
-      context.read<AuditLogController>();
+        final controller =
+            context.read<AuditLogController>();
 
-      if (!controller.isListening) {
-        controller.startListening();
-      }
-    });
+        if (!controller.isListening &&
+            !controller.isSearchMode) {
+          controller.startListening();
+        }
+      },
+    );
   }
+
+  // =========================================================
+  // DISPOSE
+  // =========================================================
 
   @override
   void dispose() {
     _codeController.dispose();
+
     super.dispose();
   }
 
+  // =========================================================
+  // DATES
+  // =========================================================
+
   Future<void> _selectFromDate() async {
-    final selected = await showDatePicker(
+    final selected =
+        await showDatePicker(
       context: context,
-      initialDate: _fromDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      initialDate:
+          _fromDate ?? DateTime.now(),
+      firstDate:
+          DateTime(2020),
+      lastDate:
+          DateTime.now(),
     );
 
-    if (selected == null || !mounted) {
+    if (selected == null ||
+        !mounted) {
       return;
     }
 
@@ -78,18 +104,41 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
         selected.month,
         selected.day,
       );
+
+      if (_toDate != null &&
+          _fromDate!.isAfter(
+            _toDate!,
+          )) {
+        _toDate = DateTime(
+          selected.year,
+          selected.month,
+          selected.day,
+          23,
+          59,
+          59,
+          999,
+        );
+      }
     });
   }
 
   Future<void> _selectToDate() async {
-    final selected = await showDatePicker(
+    final selected =
+        await showDatePicker(
       context: context,
-      initialDate: _toDate ?? DateTime.now(),
-      firstDate: _fromDate ?? DateTime(2020),
-      lastDate: DateTime.now(),
+      initialDate:
+          _toDate ??
+          _fromDate ??
+          DateTime.now(),
+      firstDate:
+          _fromDate ??
+          DateTime(2020),
+      lastDate:
+          DateTime.now(),
     );
 
-    if (selected == null || !mounted) {
+    if (selected == null ||
+        !mounted) {
       return;
     }
 
@@ -106,27 +155,45 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     });
   }
 
+  // =========================================================
+  // SEARCH
+  // =========================================================
+
   Future<void> _search() async {
     if (_fromDate != null &&
         _toDate != null &&
-        _fromDate!.isAfter(_toDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+        _fromDate!.isAfter(
+          _toDate!,
+        )) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'تاريخ البداية يجب أن يسبق تاريخ النهاية.',
           ),
         ),
       );
+
       return;
     }
 
-    await context.read<AuditLogController>().search(
-      action: _selectedAction,
-      targetCode: _codeController.text,
-      fromDate: _fromDate,
-      toDate: _toDate,
-    );
+    await context
+        .read<AuditLogController>()
+        .search(
+          action:
+              _selectedAction,
+          targetCode:
+              _codeController.text,
+          fromDate:
+              _fromDate,
+          toDate:
+              _toDate,
+        );
   }
+
+  // =========================================================
+  // CLEAR SEARCH
+  // =========================================================
 
   Future<void> _clearSearch() async {
     _codeController.clear();
@@ -139,10 +206,40 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
 
     await context
         .read<AuditLogController>()
-        .startListening();
+        .clearSearch();
   }
 
-  String _formatDate(DateTime? value) {
+  // =========================================================
+  // REFRESH
+  // =========================================================
+
+  Future<void> _refresh() async {
+    final controller =
+        context.read<AuditLogController>();
+
+    if (controller.isSearchMode) {
+      await controller.search(
+        action:
+            _selectedAction,
+        targetCode:
+            _codeController.text,
+        fromDate:
+            _fromDate,
+        toDate:
+            _toDate,
+      );
+    } else {
+      await controller.refresh();
+    }
+  }
+
+  // =========================================================
+  // FORMAT
+  // =========================================================
+
+  String _formatDate(
+    DateTime? value,
+  ) {
     if (value == null) {
       return 'غير محدد';
     }
@@ -153,69 +250,117 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     ).format(value);
   }
 
-  String _formatDateTime(DateTime value) {
+  String _formatDateTime(
+    DateTime value,
+  ) {
     return DateFormat(
       'yyyy/MM/dd - hh:mm:ss a',
       'ar',
     ).format(value);
   }
 
+  // =========================================================
+  // BUILD
+  // =========================================================
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final controller =
-    context.watch<AuditLogController>();
+        context.watch<AuditLogController>();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('سجل العمليات'),
+        title:
+            const Text(
+          'سجل العمليات',
+        ),
+        actions: [
+          if (controller.isSearchMode)
+            Padding(
+              padding:
+                  const EdgeInsets
+                      .symmetric(
+                horizontal: 8,
+              ),
+              child:
+                  const Center(
+                child: Chip(
+                  label:
+                      Text(
+                    'وضع البحث',
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
+
       body: RefreshIndicator(
-        onRefresh: () async {
-          await controller.stopListening();
-          await controller.startListening();
-        },
+        onRefresh:
+            _refresh,
         child: CustomScrollView(
           physics:
-          const AlwaysScrollableScrollPhysics(),
+              const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding:
+                    const EdgeInsets
+                        .all(
+                  16,
+                ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 1100,
+                    constraints:
+                        const BoxConstraints(
+                      maxWidth:
+                          1100,
                     ),
-                    child: _buildSearchCard(
+                    child:
+                        _buildSearchCard(
                       controller,
                     ),
                   ),
                 ),
               ),
             ),
+
             if (controller.isLoading &&
                 controller.logs.isEmpty)
               const SliverFillRemaining(
-                hasScrollBody: false,
+                hasScrollBody:
+                    false,
                 child: Center(
-                  child: CircularProgressIndicator(),
+                  child:
+                      CircularProgressIndicator(),
                 ),
               )
             else if (controller.logs.isEmpty)
               const SliverFillRemaining(
-                hasScrollBody: false,
+                hasScrollBody:
+                    false,
                 child: Center(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding:
+                        EdgeInsets.all(
+                      24,
+                    ),
                     child: Column(
                       mainAxisAlignment:
-                      MainAxisAlignment.center,
+                          MainAxisAlignment
+                              .center,
                       children: [
                         Icon(
                           Icons.history,
-                          size: 72,
+                          size:
+                              72,
                         ),
-                        SizedBox(height: 16),
+                        SizedBox(
+                          height:
+                              16,
+                        ),
                         Text(
                           'لا توجد عمليات مسجلة.',
                         ),
@@ -226,31 +371,50 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
+                padding:
+                    const EdgeInsets
+                        .fromLTRB(
                   16,
                   0,
                   16,
                   30,
                 ),
-                sliver: SliverList.separated(
-                  itemCount: controller.logs.length,
-                  separatorBuilder: (_, __) {
-                    return const SizedBox(height: 10);
-                  },
-                  itemBuilder: (context, index) {
+                sliver:
+                    SliverList.separated(
+                  itemCount:
+                      controller
+                          .logs
+                          .length,
+                  separatorBuilder:
+                      (_, __) =>
+                          const SizedBox(
+                    height:
+                        10,
+                  ),
+                  itemBuilder:
+                      (
+                    context,
+                    index,
+                  ) {
                     final log =
-                    controller.logs[index];
+                        controller
+                            .logs[
+                          index];
 
                     return Center(
-                      child: ConstrainedBox(
+                      child:
+                          ConstrainedBox(
                         constraints:
-                        const BoxConstraints(
-                          maxWidth: 1100,
+                            const BoxConstraints(
+                          maxWidth:
+                              1100,
                         ),
-                        child: _AuditLogCard(
-                          log: log,
+                        child:
+                            _AuditLogCard(
+                          log:
+                              log,
                           formattedDate:
-                          _formatDateTime(
+                              _formatDateTime(
                             log.createdAt,
                           ),
                         ),
@@ -265,147 +429,276 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     );
   }
 
+  // =========================================================
+  // SEARCH CARD
+  // =========================================================
+
   Widget _buildSearchCard(
-      AuditLogController controller,
-      ) {
+    AuditLogController controller,
+  ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding:
+            const EdgeInsets.all(
+          16,
+        ),
         child: Column(
           crossAxisAlignment:
-          CrossAxisAlignment.stretch,
+              CrossAxisAlignment
+                  .stretch,
           children: [
             Text(
               'البحث في سجل العمليات',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style:
+                  Theme.of(
+                context,
+              )
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(
+              height: 16,
+            ),
+
             TextField(
-              controller: _codeController,
-              decoration: const InputDecoration(
+              controller:
+                  _codeController,
+              enabled:
+                  !controller
+                      .isLoading,
+              decoration:
+                  const InputDecoration(
                 labelText:
-                'كود المستخدم المستهدف',
-                prefixIcon: Icon(Icons.qr_code),
-                border: OutlineInputBorder(),
+                    'كود المستخدم المستهدف',
+                prefixIcon:
+                    Icon(
+                  Icons.qr_code,
+                ),
+                border:
+                    OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedAction,
-              decoration: const InputDecoration(
-                labelText: 'نوع العملية',
+
+            const SizedBox(
+              height: 14,
+            ),
+
+            DropdownButtonFormField<
+                String>(
+              value:
+                  _selectedAction,
+              decoration:
+                  const InputDecoration(
+                labelText:
+                    'نوع العملية',
                 prefixIcon:
-                Icon(Icons.filter_alt),
-                border: OutlineInputBorder(),
+                    Icon(
+                  Icons.filter_alt,
+                ),
+                border:
+                    OutlineInputBorder(),
               ),
               items: [
-                const DropdownMenuItem<String>(
-                  value: null,
-                  child: Text(
+                const DropdownMenuItem<
+                    String>(
+                  value:
+                      null,
+                  child:
+                      Text(
                     'جميع العمليات',
                   ),
                 ),
-                ..._actionNames.entries.map(
-                      (entry) {
-                    return DropdownMenuItem<String>(
-                      value: entry.key,
-                      child: Text(entry.value),
+
+                ..._actionNames
+                    .entries
+                    .map(
+                  (
+                    entry,
+                  ) {
+                    return DropdownMenuItem<
+                        String>(
+                      value:
+                          entry.key,
+                      child:
+                          Text(
+                        entry.value,
+                      ),
                     );
                   },
                 ),
               ],
-              onChanged: controller.isLoading
-                  ? null
-                  : (value) {
-                setState(() {
-                  _selectedAction = value;
-                });
-              },
+              onChanged:
+                  controller
+                          .isLoading
+                      ? null
+                      : (value) {
+                          setState(
+                            () {
+                              _selectedAction =
+                                  value;
+                            },
+                          );
+                        },
             ),
-            const SizedBox(height: 14),
+
+            const SizedBox(
+              height: 14,
+            ),
+
             LayoutBuilder(
-              builder: (context, constraints) {
+              builder:
+                  (
+                context,
+                constraints,
+              ) {
                 final width =
-                constraints.maxWidth >= 600
-                    ? (constraints.maxWidth -
-                    12) /
-                    2
-                    : constraints.maxWidth;
+                    constraints.maxWidth >=
+                            600
+                        ? (constraints
+                                    .maxWidth -
+                                12) /
+                            2
+                        : constraints
+                            .maxWidth;
 
                 return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                  spacing:
+                      12,
+                  runSpacing:
+                      12,
                   children: [
                     SizedBox(
-                      width: width,
-                      child: _DateButton(
-                        title: 'من تاريخ',
+                      width:
+                          width,
+                      child:
+                          _DateButton(
+                        title:
+                            'من تاريخ',
                         value:
-                        _formatDate(_fromDate),
+                            _formatDate(
+                          _fromDate,
+                        ),
                         onPressed:
-                        _selectFromDate,
+                            controller
+                                    .isLoading
+                                ? null
+                                : _selectFromDate,
                       ),
                     ),
+
                     SizedBox(
-                      width: width,
-                      child: _DateButton(
-                        title: 'إلى تاريخ',
+                      width:
+                          width,
+                      child:
+                          _DateButton(
+                        title:
+                            'إلى تاريخ',
                         value:
-                        _formatDate(_toDate),
-                        onPressed: _selectToDate,
+                            _formatDate(
+                          _toDate,
+                        ),
+                        onPressed:
+                            controller
+                                    .isLoading
+                                ? null
+                                : _selectToDate,
                       ),
                     ),
                   ],
                 );
               },
             ),
-            if (controller.errorMessage != null) ...[
-              const SizedBox(height: 12),
+
+            if (controller
+                    .errorMessage !=
+                null) ...[
+              const SizedBox(
+                height: 12,
+              ),
+
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .errorContainer,
+                padding:
+                    const EdgeInsets
+                        .all(
+                  12,
+                ),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Theme.of(
+                    context,
+                  )
+                          .colorScheme
+                          .errorContainer,
                   borderRadius:
-                  BorderRadius.circular(8),
+                      BorderRadius
+                          .circular(
+                    8,
+                  ),
                 ),
                 child: Text(
-                  controller.errorMessage!,
-                  style: TextStyle(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onErrorContainer,
+                  controller
+                      .errorMessage!,
+                  style:
+                      TextStyle(
+                    color:
+                        Theme.of(
+                      context,
+                    )
+                            .colorScheme
+                            .onErrorContainer,
                   ),
                 ),
               ),
             ],
-            const SizedBox(height: 16),
+
+            const SizedBox(
+              height: 16,
+            ),
+
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.end,
+              spacing:
+                  10,
+              runSpacing:
+                  10,
+              alignment:
+                  WrapAlignment.end,
               children: [
                 OutlinedButton.icon(
-                  onPressed: controller.isLoading
-                      ? null
-                      : _clearSearch,
-                  icon: const Icon(Icons.clear),
-                  label:
-                  const Text('مسح البحث'),
-                ),
-                FilledButton.icon(
-                  onPressed: controller.isLoading
-                      ? null
-                      : _search,
+                  onPressed:
+                      controller
+                              .isLoading
+                          ? null
+                          : _clearSearch,
                   icon:
-                  const Icon(Icons.search),
-                  label: const Text('بحث'),
+                      const Icon(
+                    Icons.clear,
+                  ),
+                  label:
+                      const Text(
+                    'مسح البحث',
+                  ),
+                ),
+
+                FilledButton.icon(
+                  onPressed:
+                      controller
+                              .isLoading
+                          ? null
+                          : _search,
+                  icon:
+                      const Icon(
+                    Icons.search,
+                  ),
+                  label:
+                      const Text(
+                    'بحث',
+                  ),
                 ),
               ],
             ),
@@ -416,7 +709,12 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
   }
 }
 
-class _AuditLogCard extends StatelessWidget {
+// ===========================================================
+// AUDIT LOG CARD
+// ===========================================================
+
+class _AuditLogCard
+    extends StatelessWidget {
   const _AuditLogCard({
     required this.log,
     required this.formattedDate,
@@ -426,94 +724,144 @@ class _AuditLogCard extends StatelessWidget {
   final String formattedDate;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final name =
-    (log.details['name'] ?? '').toString();
+        (log.details['name'] ?? '')
+            .toString();
 
     final role =
-    (log.details['role'] ?? '').toString();
+        (log.details['role'] ?? '')
+            .toString();
 
     final distributorName =
-    (log.details['distributorName'] ?? '')
-        .toString();
+        (log.details[
+                    'distributorName'] ??
+                '')
+            .toString();
 
     final reportTitle =
-        (log.details['reportTitle'] ?? '')
+        (log.details[
+                    'reportTitle'] ??
+                '')
             .toString();
 
     final targetName =
-        (log.details['targetName'] ?? '')
+        (log.details[
+                    'targetName'] ??
+                '')
             .toString();
 
     return Card(
-      child: ExpansionTile(
-        leading: CircleAvatar(
-          child: Icon(
-            _iconForAction(log.action),
+      child:
+          ExpansionTile(
+        leading:
+            CircleAvatar(
+          child:
+              Icon(
+            _iconForAction(
+              log.action,
+            ),
           ),
         ),
-        title: Text(
+
+        title:
+            Text(
           log.actionName,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
+          style:
+              const TextStyle(
+            fontWeight:
+                FontWeight.bold,
           ),
         ),
-        subtitle: Text(
+
+        subtitle:
+            Text(
           'الكود: '
-              '${log.targetCode.isEmpty ? 'غير متوفر' : log.targetCode}'
-              '\n$formattedDate',
+          '${log.targetCode.isEmpty ? 'غير متوفر' : log.targetCode}'
+          '\n$formattedDate',
         ),
+
         childrenPadding:
-        const EdgeInsets.fromLTRB(
+            const EdgeInsets
+                .fromLTRB(
           16,
           0,
           16,
           16,
         ),
+
         children: [
           _InformationRow(
-            title: 'معرف منفذ العملية',
-            value: log.performedByUid,
+            title:
+                'معرف منفذ العملية',
+            value:
+                log.performedByUid,
           ),
+
           _InformationRow(
-            title: 'معرف المستخدم',
-            value: log.targetUid,
+            title:
+                'معرف المستخدم',
+            value:
+                log.targetUid,
           ),
+
           if (name.isNotEmpty)
             _InformationRow(
-              title: 'اسم المستخدم',
-              value: name,
+              title:
+                  'اسم المستخدم',
+              value:
+                  name,
             ),
+
           if (role.isNotEmpty)
             _InformationRow(
-              title: 'الصلاحية',
-              value: role,
+              title:
+                  'الصلاحية',
+              value:
+                  role,
             ),
-          if (distributorName.isNotEmpty)
+
+          if (distributorName
+              .isNotEmpty)
             _InformationRow(
-              title: 'الموزع',
-              value: distributorName,
+              title:
+                  'الموزع',
+              value:
+                  distributorName,
             ),
+
           if (reportTitle.isNotEmpty)
             _InformationRow(
-              title: 'التقرير',
-              value: reportTitle,
+              title:
+                  'التقرير',
+              value:
+                  reportTitle,
             ),
+
           if (targetName.isNotEmpty)
             _InformationRow(
-              title: 'الجهة',
-              value: targetName,
+              title:
+                  'الجهة',
+              value:
+                  targetName,
             ),
+
           _InformationRow(
-            title: 'التاريخ والوقت',
-            value: formattedDate,
+            title:
+                'التاريخ والوقت',
+            value:
+                formattedDate,
           ),
         ],
       ),
     );
   }
 
-  IconData _iconForAction(String action) {
+  IconData _iconForAction(
+    String action,
+  ) {
     switch (action) {
       case 'create_user':
         return Icons.person_add;
@@ -554,7 +902,12 @@ class _AuditLogCard extends StatelessWidget {
   }
 }
 
-class _DateButton extends StatelessWidget {
+// ===========================================================
+// DATE BUTTON
+// ===========================================================
+
+class _DateButton
+    extends StatelessWidget {
   const _DateButton({
     required this.title,
     required this.value,
@@ -563,33 +916,58 @@ class _DateButton extends StatelessWidget {
 
   final String title;
   final String value;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.all(16),
-        alignment: Alignment.centerRight,
+      onPressed:
+          onPressed,
+      style:
+          OutlinedButton
+              .styleFrom(
+        padding:
+            const EdgeInsets.all(
+          16,
+        ),
+        alignment:
+            Alignment.centerRight,
       ),
       child: Row(
         children: [
-          const Icon(Icons.date_range),
-          const SizedBox(width: 12),
+          const Icon(
+            Icons.date_range,
+          ),
+
+          const SizedBox(
+            width: 12,
+          ),
+
           Expanded(
             child: Column(
               crossAxisAlignment:
-              CrossAxisAlignment.start,
+                  CrossAxisAlignment
+                      .start,
               children: [
                 Text(
                   title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall,
+                  style:
+                      Theme.of(
+                    context,
+                  )
+                          .textTheme
+                          .bodySmall,
                 ),
-                const SizedBox(height: 3),
-                Text(value),
+
+                const SizedBox(
+                  height: 3,
+                ),
+
+                Text(
+                  value,
+                ),
               ],
             ),
           ),
@@ -599,7 +977,12 @@ class _DateButton extends StatelessWidget {
   }
 }
 
-class _InformationRow extends StatelessWidget {
+// ===========================================================
+// INFORMATION ROW
+// ===========================================================
+
+class _InformationRow
+    extends StatelessWidget {
   const _InformationRow({
     required this.title,
     required this.value,
@@ -609,28 +992,36 @@ class _InformationRow extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Padding(
       padding:
-      const EdgeInsets.symmetric(
+          const EdgeInsets
+              .symmetric(
         vertical: 5,
       ),
       child: Row(
         crossAxisAlignment:
-        CrossAxisAlignment.start,
+            CrossAxisAlignment
+                .start,
         children: [
           SizedBox(
-            width: 150,
+            width:
+                150,
             child: Text(
               title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
+              style:
+                  const TextStyle(
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
           ),
+
           Expanded(
             child: SelectableText(
-              value.isEmpty
+              value.trim().isEmpty
                   ? 'غير متوفر'
                   : value,
             ),
