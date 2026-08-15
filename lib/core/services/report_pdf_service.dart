@@ -422,57 +422,41 @@ class ReportPdfService {
               ),
             ),
           )
-        else ...[
+        else if (secondGroup.isEmpty)
           /*
-           * Expanded يجعل الجدول يستفيد من المساحة
-           * الرأسية المتاحة بدل ترك مساحة كبيرة فارغة.
+           * من 1 إلى 6 موزعات:
+           * جدول واحد يملأ المساحة المتاحة بالكامل رأسيًا.
            */
           pw.Expanded(
-            child:
-                pw.Container(
-              alignment:
-                  pw.Alignment.topCenter,
-              child:
-                  _buildDistributorGrid(
-                day:
-                    day,
-                index:
-                    index,
-                distributors:
-                    firstGroup,
-              ),
+            child: _buildDistributorGrid(
+              day: day,
+              index: index,
+              distributors: firstGroup,
+              fillHeight: true,
+            ),
+          )
+        else ...[
+          /*
+           * من 7 إلى 12 موزع:
+           * جدولان متساويان تقريبًا في الارتفاع.
+           */
+          pw.Expanded(
+            child: _buildDistributorGrid(
+              day: day,
+              index: index,
+              distributors: firstGroup,
+              fillHeight: true,
             ),
           ),
-
-          if (secondGroup.isNotEmpty) ...[
-            pw.SizedBox(
-              height:
-                  5,
+          pw.SizedBox(height: 4),
+          pw.Expanded(
+            child: _buildDistributorGrid(
+              day: day,
+              index: index,
+              distributors: secondGroup,
+              fillHeight: true,
             ),
-
-            pw.Expanded(
-              child:
-                  pw.Container(
-                alignment:
-                    pw.Alignment.topCenter,
-                child:
-                    _buildDistributorGrid(
-                  day:
-                      day,
-                  index:
-                      index,
-                  distributors:
-                      secondGroup,
-                ),
-              ),
-            ),
-          ] else
-            /*
-             * لو الصفحة بها أقل من 7 موزعات،
-             * نستخدم النصف الثاني كمساحة إضافية
-             * للجدول الأول بدل ظهور فراغ ضخم.
-             */
-            pw.Spacer(),
+          ),
         ],
 
         pw.SizedBox(
@@ -493,6 +477,7 @@ class ReportPdfService {
     required DateTime day,
     required _ReportPdfIndex index,
     required List<Distributor> distributors,
+    bool fillHeight = false,
   }) {
     final rows =
         <pw.TableRow>[
@@ -597,39 +582,35 @@ class ReportPdfService {
      * الجدول نفسه لا يُقسم لأننا نستخدم pw.Page
      * وليس MultiPage في تقرير جميع الموزعات.
      */
-    return pw.Directionality(
-      textDirection:
-          pw.TextDirection.rtl,
-      child:
-          pw.Table(
-        border:
-            pw.TableBorder.all(
-          width:
-              .42,
-          color:
-              PdfColors.grey700,
+    final table = pw.Directionality(
+      textDirection: pw.TextDirection.rtl,
+      child: pw.Table(
+        border: pw.TableBorder.all(
+          width: .42,
+          color: PdfColors.grey700,
         ),
-
-        columnWidths:
-            <int, pw.TableColumnWidth>{
-          0:
-              const pw.FlexColumnWidth(
-            1.0,
-          ),
-
-          for (var i = 0;
-              i <
-                  distributors.length *
-                      3;
-              i++)
-            i + 1:
-                const pw.FlexColumnWidth(
-              .82,
-            ),
+        columnWidths: <int, pw.TableColumnWidth>{
+          0: const pw.FlexColumnWidth(1.0),
+          for (var i = 0; i < distributors.length * 3; i++)
+            i + 1: const pw.FlexColumnWidth(.82),
         },
+        children: rows,
+      ),
+    );
 
-        children:
-            rows,
+    if (!fillHeight) {
+      return table;
+    }
+
+    /*
+     * ملء المساحة المتاحة رأسيًا بدون تغيير عرض الأعمدة.
+     * FittedBox يحافظ على الجدول كوحدة واحدة داخل الصفحة.
+     */
+    return pw.Container(
+      alignment: pw.Alignment.center,
+      child: pw.FittedBox(
+        fit: pw.BoxFit.fill,
+        child: table,
       ),
     );
   }
