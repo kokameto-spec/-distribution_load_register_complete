@@ -14,7 +14,9 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
+//
 // English (United States) resources
+//
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
@@ -90,12 +92,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.distribution.loads" "\0"
-            VALUE "FileDescription", "distribution_load_register_final" "\0"
+            VALUE "FileDescription", "سجل أحمال الموزعات" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "distribution_load_register_final" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.distribution.loads. All rights reserved." "\0"
             VALUE "OriginalFilename", "distribution_load_register_final.exe" "\0"
-            VALUE "ProductName", "distribution_load_register_final" "\0"
+            VALUE "ProductName", "سجل أحمال الموزعات" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
@@ -107,7 +109,6 @@ END
 
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
-
 
 
 #ifndef APSTUDIO_INVOKED
