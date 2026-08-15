@@ -152,7 +152,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Text(
-                      ' الإصدار 1.5',
+                      ' الإصدار 3.6.6',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
