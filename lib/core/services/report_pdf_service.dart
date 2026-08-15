@@ -48,26 +48,54 @@ class ReportPdfService {
           .toList()
         ..sort((a, b) => a.name.compareTo(b.name));
 
+      final groups = <List<Distributor>>[];
+      for (var i = 0; i < activeDistributors.length; i += 6) {
+        final groupEnd = (i + 6) < activeDistributors.length
+            ? i + 6
+            : activeDistributors.length;
+        groups.add(activeDistributors.sublist(i, groupEnd));
+      }
+
+      if (groups.isEmpty) {
+        groups.add(<Distributor>[]);
+      }
+
+      // كل مجموعة موزعات لها صفحة مستقلة بالكامل.
+      // بهذا لا يمكن أن يبدأ الموزع في صفحة ويكمل في صفحة أخرى.
       for (final day in _daysBetween(start, end)) {
-        document.addPage(
-          pw.MultiPage(
-            pageFormat: PdfPageFormat.a4.landscape,
-            margin: const pw.EdgeInsets.all(14),
-            theme: theme,
-            header: (_) => _buildHeader(logoBytes),
-            footer: (_) => _buildFooter(),
-            build: (_) => <pw.Widget>[
-              _buildPeriodRow(day: day, hour: hour),
-              pw.SizedBox(height: 7),
-              ..._buildDistributorTables(
-                day: day,
-                hour: hour,
-                index: index,
-                distributors: activeDistributors,
+        for (final group in groups) {
+          document.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4.landscape,
+              margin: const pw.EdgeInsets.all(14),
+              theme: theme,
+              build: (_) => pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: <pw.Widget>[
+                  _buildHeader(logoBytes),
+                  pw.SizedBox(height: 6),
+                  _buildPeriodRow(day: day, hour: hour),
+                  pw.SizedBox(height: 7),
+                  if (group.isEmpty)
+                    pw.Expanded(
+                      child: pw.Center(
+                        child: pw.Text('لا توجد موزعات نشطة.'),
+                      ),
+                    )
+                  else
+                    _buildDistributorGrid(
+                      day: day,
+                      hour: hour,
+                      index: index,
+                      distributors: group,
+                    ),
+                  pw.Spacer(),
+                  _buildFooter(),
+                ],
               ),
-            ],
-          ),
-        );
+            ),
+          );
+        }
       }
     } else {
       final distributor = _findDistributor(
@@ -99,7 +127,7 @@ class ReportPdfService {
   static Future<void> printReport({
     required List<LoadRecord> records,
     required List<Distributor> distributors,
-    required String fileName,
+    String? fileName,
     String? selectedDistributorId,
     DateTime? selectedDateTime,
     DateTime? fromDate,
@@ -117,7 +145,7 @@ class ReportPdfService {
     );
 
     await Printing.layoutPdf(
-      name: '$fileName.pdf',
+      name: '${_effectiveFileName(fileName)}.pdf',
       format: PdfPageFormat.a4.landscape,
       onLayout: (_) async => bytes,
     );
@@ -126,7 +154,7 @@ class ReportPdfService {
   static Future<void> saveReport({
     required List<LoadRecord> records,
     required List<Distributor> distributors,
-    required String fileName,
+    String? fileName,
     String? selectedDistributorId,
     DateTime? selectedDateTime,
     DateTime? fromDate,
@@ -144,7 +172,7 @@ class ReportPdfService {
     );
 
     await FileSaver.instance.saveAs(
-      name: fileName,
+      name: _effectiveFileName(fileName),
       bytes: bytes,
       fileExtension: 'pdf',
       mimeType: MimeType.pdf,
@@ -154,7 +182,7 @@ class ReportPdfService {
   static Future<void> shareReport({
     required List<LoadRecord> records,
     required List<Distributor> distributors,
-    required String fileName,
+    String? fileName,
     String? selectedDistributorId,
     DateTime? selectedDateTime,
     DateTime? fromDate,
@@ -173,7 +201,7 @@ class ReportPdfService {
 
     await Printing.sharePdf(
       bytes: bytes,
-      filename: '$fileName.pdf',
+      filename: '${_effectiveFileName(fileName)}.pdf',
     );
   }
 
@@ -580,6 +608,11 @@ class ReportPdfService {
       if (distributor.id == id) return distributor;
     }
     return null;
+  }
+
+  static String _effectiveFileName(String? value) {
+    final name = value?.trim() ?? '';
+    return name.isEmpty ? 'احمال الموزعات' : name;
   }
 
   static String _formatDate(DateTime value) {
