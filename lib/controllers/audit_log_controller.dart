@@ -26,15 +26,10 @@ class AuditLogController extends ChangeNotifier {
 
   String? _errorMessage;
 
-  // =========================================================
-  // GETTERS
-  // =========================================================
-
-  List<AuditLog> get logs {
-    return List<AuditLog>.unmodifiable(
-      _logs,
-    );
-  }
+  List<AuditLog> get logs =>
+      List<AuditLog>.unmodifiable(
+        _logs,
+      );
 
   bool get isLoading =>
       _isLoading;
@@ -60,7 +55,6 @@ class AuditLogController extends ChangeNotifier {
 
   Future<void> startListening() async {
     await _subscription?.cancel();
-
     _subscription = null;
 
     _isLoading = true;
@@ -70,21 +64,12 @@ class AuditLogController extends ChangeNotifier {
 
     notifyListeners();
 
-    // =======================================================
-    // WINDOWS
-    // =======================================================
-
     if (_windows) {
       try {
-        /*
-         * Windows:
-         *
-         * تحميل مرة واحدة فقط.
-         * لا Stream ولا Polling مستمر.
-         */
-        _logs = await _repository
-            .latest()
-            .timeout(
+        _logs =
+            await _repository
+                .latest()
+                .timeout(
           const Duration(
             seconds: 25,
           ),
@@ -92,20 +77,16 @@ class AuditLogController extends ChangeNotifier {
 
         _errorMessage = null;
       } on TimeoutException {
-        _logs =
-            <AuditLog>[];
+        _logs = <AuditLog>[];
 
         _errorMessage =
             'استغرق تحميل سجل العمليات وقتًا طويلًا. '
             'تحقق من الإنترنت ثم أعد المحاولة.';
       } catch (error) {
-        _logs =
-            <AuditLog>[];
+        _logs = <AuditLog>[];
 
         _errorMessage =
-            _errorText(
-          error,
-        );
+            _errorText(error);
       } finally {
         _isLoading = false;
         _isListening = false;
@@ -116,10 +97,6 @@ class AuditLogController extends ChangeNotifier {
       return;
     }
 
-    // =======================================================
-    // ANDROID / OTHER PLATFORMS
-    // =======================================================
-
     _subscription =
         _repository
             .watchAll()
@@ -129,9 +106,7 @@ class AuditLogController extends ChangeNotifier {
           return;
         }
 
-        _logs =
-            items;
-
+        _logs = items;
         _isLoading = false;
         _isListening = true;
         _errorMessage = null;
@@ -147,11 +122,8 @@ class AuditLogController extends ChangeNotifier {
 
         _isLoading = false;
         _isListening = false;
-
         _errorMessage =
-            _errorText(
-          error,
-        );
+            _errorText(error);
 
         notifyListeners();
       },
@@ -169,21 +141,6 @@ class AuditLogController extends ChangeNotifier {
   }
 
   // =========================================================
-  // STOP
-  // =========================================================
-
-  Future<void> stopListening() async {
-    await _subscription?.cancel();
-
-    _subscription = null;
-
-    _isListening = false;
-    _isLoading = false;
-
-    notifyListeners();
-  }
-
-  // =========================================================
   // SEARCH
   // =========================================================
 
@@ -194,7 +151,6 @@ class AuditLogController extends ChangeNotifier {
     DateTime? toDate,
   }) async {
     await _subscription?.cancel();
-
     _subscription = null;
 
     _isListening = false;
@@ -205,39 +161,34 @@ class AuditLogController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _logs = await _repository
-          .search(
-            action:
-                action,
-            targetCode:
-                targetCode,
-            fromDate:
-                fromDate,
-            toDate:
-                toDate,
-          )
-          .timeout(
-            const Duration(
-              seconds: 30,
-            ),
-          );
-
-      _errorMessage =
-          null;
-    } on TimeoutException {
       _logs =
-          <AuditLog>[];
+          await _repository
+              .search(
+                action: action,
+                targetCode:
+                    targetCode,
+                fromDate:
+                    fromDate,
+                toDate:
+                    toDate,
+              )
+              .timeout(
+        const Duration(
+          seconds: 30,
+        ),
+      );
+
+      _errorMessage = null;
+    } on TimeoutException {
+      _logs = <AuditLog>[];
 
       _errorMessage =
           'انتهت مهلة البحث في سجل العمليات.';
     } catch (error) {
-      _logs =
-          <AuditLog>[];
+      _logs = <AuditLog>[];
 
       _errorMessage =
-          _errorText(
-        error,
-      );
+          _errorText(error);
     } finally {
       _isLoading = false;
 
@@ -246,7 +197,108 @@ class AuditLogController extends ChangeNotifier {
   }
 
   // =========================================================
-  // CLEAR SEARCH
+  // UPDATE
+  // =========================================================
+
+  Future<bool> updateLog({
+    required AuditLog original,
+    required String action,
+    required String targetCode,
+    required Map<String, dynamic> details,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _repository
+          .updateLog(
+            id: original.id,
+            action: action,
+            targetCode:
+                targetCode,
+            details: details,
+          )
+          .timeout(
+        const Duration(
+          seconds: 30,
+        ),
+      );
+
+      await _reloadAfterWrite();
+
+      return true;
+    } on TimeoutException {
+      _errorMessage =
+          'انتهت مهلة تعديل سجل العملية.';
+      return false;
+    } catch (error) {
+      _errorMessage =
+          _errorText(error);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // =========================================================
+  // DELETE
+  // =========================================================
+
+  Future<bool> deleteLog(
+    AuditLog log,
+  ) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _repository
+          .deleteLog(
+            log.id,
+          )
+          .timeout(
+        const Duration(
+          seconds: 30,
+        ),
+      );
+
+      _logs.removeWhere(
+        (item) =>
+            item.id == log.id,
+      );
+
+      notifyListeners();
+
+      return true;
+    } on TimeoutException {
+      _errorMessage =
+          'انتهت مهلة حذف سجل العملية.';
+      return false;
+    } catch (error) {
+      _errorMessage =
+          _errorText(error);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _reloadAfterWrite() async {
+    if (_isSearchMode) {
+      _logs =
+          await _repository.latest();
+      _isSearchMode = false;
+    } else {
+      _logs =
+          await _repository.latest();
+    }
+  }
+
+  // =========================================================
+  // CLEAR / REFRESH
   // =========================================================
 
   Future<void> clearSearch() async {
@@ -256,10 +308,6 @@ class AuditLogController extends ChangeNotifier {
     await startListening();
   }
 
-  // =========================================================
-  // REFRESH
-  // =========================================================
-
   Future<void> refresh() async {
     if (_isSearchMode) {
       return;
@@ -268,13 +316,18 @@ class AuditLogController extends ChangeNotifier {
     await startListening();
   }
 
-  // =========================================================
-  // CLEAR ERROR
-  // =========================================================
+  Future<void> stopListening() async {
+    await _subscription?.cancel();
+
+    _subscription = null;
+    _isListening = false;
+    _isLoading = false;
+
+    notifyListeners();
+  }
 
   void clearError() {
     _errorMessage = null;
-
     notifyListeners();
   }
 
@@ -288,7 +341,7 @@ class AuditLogController extends ChangeNotifier {
     if (error is FirebaseException) {
       switch (error.code) {
         case 'permission-denied':
-          return 'لا توجد صلاحية لقراءة سجل العمليات.';
+          return 'لا توجد صلاحية لتنفيذ العملية على سجل العمليات.';
 
         case 'unavailable':
           return 'خدمة قاعدة البيانات غير متاحة حاليًا.';
@@ -298,7 +351,7 @@ class AuditLogController extends ChangeNotifier {
 
         default:
           return error.message ??
-              'تعذر تحميل سجل العمليات.';
+              'تعذر تنفيذ العملية.';
       }
     }
 
@@ -328,7 +381,7 @@ class AuditLogController extends ChangeNotifier {
     if (text.contains(
       'PERMISSION_DENIED',
     )) {
-      return 'لا توجد صلاحية لقراءة سجل العمليات.';
+      return 'لا توجد صلاحية لتنفيذ العملية على سجل العمليات.';
     }
 
     if (text.contains(
@@ -338,18 +391,13 @@ class AuditLogController extends ChangeNotifier {
     }
 
     return text.isEmpty
-        ? 'تعذر تحميل سجل العمليات.'
+        ? 'تعذر تنفيذ العملية.'
         : text;
   }
-
-  // =========================================================
-  // DISPOSE
-  // =========================================================
 
   @override
   void dispose() {
     _subscription?.cancel();
-
     super.dispose();
   }
 }
