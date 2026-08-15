@@ -9,18 +9,38 @@ import '../models/saved_report.dart';
 class SavedReportRepository {
   SavedReportRepository({
     FirebaseFirestore? firestore,
-  }) : _firestore =
-            firestore ?? FirebaseFirestore.instance;
+  }) {
+    if (!_windows) {
+      _firestore =
+          firestore ?? FirebaseFirestore.instance;
+    }
+  }
 
-  final FirebaseFirestore _firestore;
+  FirebaseFirestore? _firestore;
 
   bool get _windows {
     return !kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.windows;
+        defaultTargetPlatform ==
+            TargetPlatform.windows;
   }
 
-  CollectionReference<Map<String, dynamic>> get _reports {
-    return _firestore.collection('saved_reports');
+  FirebaseFirestore get _nativeFirestore {
+    final firestore = _firestore;
+
+    if (firestore == null) {
+      throw StateError(
+        'Firebase Native غير مستخدم على Windows.',
+      );
+    }
+
+    return firestore;
+  }
+
+  CollectionReference<Map<String, dynamic>>
+      get _reports {
+    return _nativeFirestore.collection(
+      'saved_reports',
+    );
   }
 
   Stream<List<SavedReport>> watchAll() {
@@ -42,34 +62,47 @@ class SavedReportRepository {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map(SavedReport.fromFirestore)
-              .toList(growable: false),
+              .map(
+                SavedReport.fromFirestore,
+              )
+              .toList(
+                growable: false,
+              ),
         );
   }
 
-  Future<List<SavedReport>> _getAllRest() async {
+  Future<List<SavedReport>>
+      _getAllRest() async {
     final documents =
-        await FirebaseRestService.getCollection(
+        await FirebaseRestService
+            .getCollection(
       collection: 'saved_reports',
     );
 
-    final reports = documents.map((document) {
-      final data =
-          FirebaseRestService.documentData(
-        document,
-      );
-
-      return _fromRest(
-        FirebaseRestService.documentId(
+    final reports =
+        documents.map(
+      (document) {
+        final data =
+            FirebaseRestService
+                .documentData(
           document,
-        ),
-        data,
-      );
-    }).toList();
+        );
+
+        return _fromRest(
+          FirebaseRestService
+              .documentId(
+            document,
+          ),
+          data,
+        );
+      },
+    ).toList();
 
     reports.sort(
       (a, b) =>
-          b.updatedAt.compareTo(a.updatedAt),
+          b.updatedAt.compareTo(
+        a.updatedAt,
+      ),
     );
 
     return reports;
@@ -87,7 +120,8 @@ class SavedReportRepository {
     required String performedByUid,
     required String performedByCode,
   }) async {
-    final normalizedTitle = title.trim();
+    final normalizedTitle =
+        title.trim();
 
     if (normalizedTitle.isEmpty) {
       throw ArgumentError(
@@ -96,45 +130,70 @@ class SavedReportRepository {
     }
 
     if (_windows) {
-      final now = DateTime.now();
+      final now =
+          DateTime.now();
 
-      return FirebaseRestService.createDocument(
+      return FirebaseRestService
+          .createDocument(
         collection: 'saved_reports',
         data: {
-          'title': normalizedTitle,
-          'reportType': reportType.trim(),
-          'targetId': targetId.trim(),
-          'targetName': targetName.trim(),
-          'fromDate': fromDate,
-          'toDate': toDate,
-          'hour': hour,
-          'notes': notes.trim(),
-          'createdByUid': performedByUid,
-          'createdByCode': performedByCode,
-          'createdAt': now,
-          'updatedAt': now,
+          'title':
+              normalizedTitle,
+          'reportType':
+              reportType.trim(),
+          'targetId':
+              targetId.trim(),
+          'targetName':
+              targetName.trim(),
+          'fromDate':
+              fromDate,
+          'toDate':
+              toDate,
+          'hour':
+              hour,
+          'notes':
+              notes.trim(),
+          'createdByUid':
+              performedByUid,
+          'createdByCode':
+              performedByCode,
+          'createdAt':
+              now,
+          'updatedAt':
+              now,
         },
       );
     }
 
-    final document = _reports.doc();
+    final document =
+        _reports.doc();
 
     await document.set(
       <String, dynamic>{
-        'title': normalizedTitle,
-        'reportType': reportType.trim(),
-        'targetId': targetId.trim(),
-        'targetName': targetName.trim(),
-        'fromDate': Timestamp.fromDate(
+        'title':
+            normalizedTitle,
+        'reportType':
+            reportType.trim(),
+        'targetId':
+            targetId.trim(),
+        'targetName':
+            targetName.trim(),
+        'fromDate':
+            Timestamp.fromDate(
           fromDate,
         ),
-        'toDate': Timestamp.fromDate(
+        'toDate':
+            Timestamp.fromDate(
           toDate,
         ),
-        'hour': hour,
-        'notes': notes.trim(),
-        'createdByUid': performedByUid,
-        'createdByCode': performedByCode,
+        'hour':
+            hour,
+        'notes':
+            notes.trim(),
+        'createdByUid':
+            performedByUid,
+        'createdByCode':
+            performedByCode,
         'createdAt':
             FieldValue.serverTimestamp(),
         'updatedAt':
@@ -152,7 +211,8 @@ class SavedReportRepository {
     required String performedByUid,
     required String performedByCode,
   }) async {
-    final normalizedTitle = title.trim();
+    final normalizedTitle =
+        title.trim();
 
     if (normalizedTitle.isEmpty) {
       throw ArgumentError(
@@ -161,23 +221,34 @@ class SavedReportRepository {
     }
 
     if (_windows) {
-      await FirebaseRestService.patchDocument(
+      await FirebaseRestService
+          .patchDocument(
         collection: 'saved_reports',
-        documentId: report.id,
+        documentId:
+            report.id,
         data: {
-          'title': normalizedTitle,
-          'notes': notes.trim(),
-          'updatedAt': DateTime.now(),
+          'title':
+              normalizedTitle,
+          'notes':
+              notes.trim(),
+          'updatedAt':
+              DateTime.now(),
         },
       );
 
       return;
     }
 
-    await _reports.doc(report.id).update(
+    await _reports
+        .doc(
+          report.id,
+        )
+        .update(
       <String, dynamic>{
-        'title': normalizedTitle,
-        'notes': notes.trim(),
+        'title':
+            normalizedTitle,
+        'notes':
+            notes.trim(),
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -190,21 +261,28 @@ class SavedReportRepository {
     required String performedByCode,
   }) async {
     if (_windows) {
-      await FirebaseRestService.deleteDocument(
+      await FirebaseRestService
+          .deleteDocument(
         collection: 'saved_reports',
-        documentId: report.id,
+        documentId:
+            report.id,
       );
 
       return;
     }
 
-    await _reports.doc(report.id).delete();
+    await _reports
+        .doc(
+          report.id,
+        )
+        .delete();
   }
 
   Future<SavedReport?> getById(
     String id,
   ) async {
-    final reportId = id.trim();
+    final reportId =
+        id.trim();
 
     if (reportId.isEmpty) {
       return null;
@@ -212,7 +290,8 @@ class SavedReportRepository {
 
     if (_windows) {
       final document =
-          await FirebaseRestService.getDocument(
+          await FirebaseRestService
+              .getDocument(
         collection: 'saved_reports',
         documentId: reportId,
       );
@@ -223,14 +302,19 @@ class SavedReportRepository {
 
       return _fromRest(
         reportId,
-        FirebaseRestService.documentData(
+        FirebaseRestService
+            .documentData(
           document,
         ),
       );
     }
 
     final document =
-        await _reports.doc(reportId).get();
+        await _reports
+            .doc(
+              reportId,
+            )
+            .get();
 
     if (!document.exists) {
       return null;
@@ -248,51 +332,85 @@ class SavedReportRepository {
     return SavedReport(
       id: id,
       title:
-          (data['title'] ?? '').toString(),
+          (data['title'] ?? '')
+              .toString(),
       reportType:
-          (data['reportType'] ?? '').toString(),
+          (data['reportType'] ?? '')
+              .toString(),
       targetId:
-          (data['targetId'] ?? '').toString(),
+          (data['targetId'] ?? '')
+              .toString(),
       targetName:
-          (data['targetName'] ?? '').toString(),
+          (data['targetName'] ?? '')
+              .toString(),
       fromDate:
-          _date(data['fromDate']),
+          _date(
+        data['fromDate'],
+      ),
       toDate:
-          _date(data['toDate']),
-      hour: data['hour'] is num
-          ? (data['hour'] as num).toInt()
-          : int.tryParse(
-                data['hour']?.toString() ?? '',
-              ) ??
-              -1,
+          _date(
+        data['toDate'],
+      ),
+      hour:
+          data['hour'] is num
+              ? (data['hour'] as num)
+                  .toInt()
+              : int.tryParse(
+                    data['hour']
+                            ?.toString() ??
+                        '',
+                  ) ??
+                  -1,
       notes:
-          (data['notes'] ?? '').toString(),
+          (data['notes'] ?? '')
+              .toString(),
       createdByUid:
-          (data['createdByUid'] ?? '').toString(),
+          (data['createdByUid'] ?? '')
+              .toString(),
       createdByCode:
-          (data['createdByCode'] ?? '').toString(),
+          (data['createdByCode'] ?? '')
+              .toString(),
       createdAt:
-          _date(data['createdAt']),
+          _date(
+        data['createdAt'],
+      ),
       updatedAt:
-          _date(data['updatedAt']),
+          _date(
+        data['updatedAt'],
+      ),
     );
   }
 
-  DateTime _date(dynamic value) {
+  DateTime _date(
+    dynamic value,
+  ) {
     if (value is DateTime) {
       return value;
     }
 
-    if (value is String) {
-      return DateTime.tryParse(value) ??
-          DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is Timestamp) {
+      return value.toDate();
     }
 
-    return DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is String) {
+      return DateTime.tryParse(
+            value,
+          ) ??
+          DateTime
+              .fromMillisecondsSinceEpoch(
+            0,
+          );
+    }
+
+    return DateTime
+        .fromMillisecondsSinceEpoch(
+      0,
+    );
   }
 }
 
-extension _SavedReportStreamStart<T> on Stream<T> {
+extension _SavedReportStreamStart<T>
+    on Stream<T> {
   Stream<T> startWith(
     Future<T> first,
   ) async* {
