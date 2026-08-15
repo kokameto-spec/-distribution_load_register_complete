@@ -23,11 +23,19 @@ class AuditLogRepository {
   static const int _defaultLimit = 200;
   static const int _searchLimit = 500;
 
+  // =========================================================
+  // PLATFORM
+  // =========================================================
+
   bool get _windows {
     return !kIsWeb &&
         defaultTargetPlatform ==
             TargetPlatform.windows;
   }
+
+  // =========================================================
+  // FIRESTORE NATIVE
+  // =========================================================
 
   FirebaseFirestore get _nativeFirestore {
     final firestore = _firestore;
@@ -49,13 +57,15 @@ class AuditLogRepository {
   }
 
   // =========================================================
-  // WATCH
+  // WATCH ALL
   // =========================================================
 
   Stream<List<AuditLog>> watchAll() {
     if (_windows) {
       return Stream<List<AuditLog>>.periodic(
-        const Duration(seconds: 30),
+        const Duration(
+          seconds: 30,
+        ),
       ).asyncMap(
         (_) => latest(),
       ).startWith(
@@ -68,16 +78,20 @@ class AuditLogRepository {
           'createdAt',
           descending: true,
         )
-        .limit(_defaultLimit)
+        .limit(
+          _defaultLimit,
+        )
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(
-                AuditLog.fromFirestore,
-              )
-              .toList(
-                growable: false,
-              ),
+          (snapshot) {
+            return snapshot.docs
+                .map(
+                  AuditLog.fromFirestore,
+                )
+                .toList(
+                  growable: false,
+                );
+          },
         );
   }
 
@@ -98,7 +112,9 @@ class AuditLogRepository {
               'createdAt',
               descending: true,
             )
-            .limit(_defaultLimit)
+            .limit(
+              _defaultLimit,
+            )
             .get();
 
     return snapshot.docs
@@ -174,14 +190,17 @@ class AuditLogRepository {
 
     final snapshot =
         await query
-            .limit(_searchLimit)
+            .limit(
+              _searchLimit,
+            )
             .get();
 
-    final logs = snapshot.docs
-        .map(
-          AuditLog.fromFirestore,
-        )
-        .toList();
+    final logs =
+        snapshot.docs
+            .map(
+              AuditLog.fromFirestore,
+            )
+            .toList();
 
     return _filterLocal(
       logs,
@@ -191,7 +210,7 @@ class AuditLogRepository {
   }
 
   // =========================================================
-  // UPDATE
+  // UPDATE LOG
   // =========================================================
 
   Future<void> updateLog({
@@ -200,7 +219,8 @@ class AuditLogRepository {
     required String targetCode,
     required Map<String, dynamic> details,
   }) async {
-    final documentId = id.trim();
+    final documentId =
+        id.trim();
 
     if (documentId.isEmpty) {
       throw ArgumentError(
@@ -208,36 +228,57 @@ class AuditLogRepository {
       );
     }
 
-    final data = <String, dynamic>{
-      'action': action.trim(),
-      'targetCode': targetCode.trim(),
-      'details': details,
+    final normalizedAction =
+        action.trim();
+
+    if (normalizedAction.isEmpty) {
+      throw ArgumentError(
+        'نوع العملية غير محدد.',
+      );
+    }
+
+    final data =
+        <String, dynamic>{
+      'action':
+          normalizedAction,
+      'targetCode':
+          targetCode.trim(),
+      'details':
+          details,
     };
 
     if (_windows) {
       await FirebaseRestService
           .patchDocument(
-        collection: 'audit_logs',
-        documentId: documentId,
-        data: data,
+        collection:
+            'audit_logs',
+        documentId:
+            documentId,
+        data:
+            data,
       );
 
       return;
     }
 
     await _collection
-        .doc(documentId)
-        .update(data);
+        .doc(
+          documentId,
+        )
+        .update(
+          data,
+        );
   }
 
   // =========================================================
-  // DELETE
+  // DELETE LOG
   // =========================================================
 
   Future<void> deleteLog(
     String id,
   ) async {
-    final documentId = id.trim();
+    final documentId =
+        id.trim();
 
     if (documentId.isEmpty) {
       throw ArgumentError(
@@ -246,72 +287,25 @@ class AuditLogRepository {
     }
 
     if (_windows) {
-      var headers =
-          await FirebaseRestService
-              .getValidAuthHeaders();
-
-      var response =
-          await http
-              .delete(
-                FirebaseRestService
-                    .documentUrl(
-                  'audit_logs',
-                  documentId,
-                ),
-                headers: headers,
-              )
-              .timeout(
-                const Duration(
-                  seconds: 25,
-                ),
-              );
-
-      if (response.statusCode == 401) {
-        final refreshed =
-            await FirebaseRestService
-                .refreshIdToken();
-
-        if (!refreshed) {
-          throw StateError(
-            'انتهت جلسة تسجيل الدخول. '
-            'سجل الدخول مرة أخرى.',
-          );
-        }
-
-        headers =
-            await FirebaseRestService
-                .getValidAuthHeaders();
-
-        response =
-            await http
-                .delete(
-                  FirebaseRestService
-                      .documentUrl(
-                    'audit_logs',
-                    documentId,
-                  ),
-                  headers: headers,
-                )
-                .timeout(
-                  const Duration(
-                    seconds: 25,
-                  ),
-                );
-      }
-
-      if (response.statusCode < 200 ||
-          response.statusCode >= 300) {
-        _throwWindowsError(
-          response,
-          writeOperation: true,
-        );
-      }
+      /*
+       * نستخدم الخدمة المركزية بدل تكرار http.delete.
+       * الخدمة تتولى التوكن والـ401 والـTimeout والأخطاء.
+       */
+      await FirebaseRestService
+          .deleteDocument(
+        collection:
+            'audit_logs',
+        documentId:
+            documentId,
+      );
 
       return;
     }
 
     await _collection
-        .doc(documentId)
+        .doc(
+          documentId,
+        )
         .delete();
   }
 
@@ -378,27 +372,33 @@ class AuditLogRepository {
     Map<String, dynamic>? where;
 
     if (filters.length == 1) {
-      where = filters.first;
+      where =
+          filters.first;
     } else if (filters.length > 1) {
-      where = <String, dynamic>{
+      where =
+          <String, dynamic>{
         'compositeFilter':
             <String, dynamic>{
-          'op': 'AND',
-          'filters': filters,
+          'op':
+              'AND',
+          'filters':
+              filters,
         },
       };
     }
 
     final structuredQuery =
         <String, dynamic>{
-      'from': <Map<String, dynamic>>[
+      'from':
+          <Map<String, dynamic>>[
         <String, dynamic>{
           'collectionId':
               'audit_logs',
         },
       ],
       if (where != null)
-        'where': where,
+        'where':
+            where,
       'orderBy':
           <Map<String, dynamic>>[
         <String, dynamic>{
@@ -411,10 +411,12 @@ class AuditLogRepository {
               'DESCENDING',
         },
       ],
-      'limit': limit,
+      'limit':
+          limit,
     };
 
-    final uri = Uri.parse(
+    final uri =
+        Uri.parse(
       'https://firestore.googleapis.com/v1/'
       'projects/${FirebaseRestService.projectId}/'
       'databases/(default)/documents:runQuery',
@@ -428,8 +430,10 @@ class AuditLogRepository {
         await http
             .post(
               uri,
-              headers: headers,
-              body: jsonEncode(
+              headers:
+                  headers,
+              body:
+                  jsonEncode(
                 <String, dynamic>{
                   'structuredQuery':
                       structuredQuery,
@@ -438,7 +442,8 @@ class AuditLogRepository {
             )
             .timeout(
               const Duration(
-                seconds: 25,
+                seconds:
+                    25,
               ),
             );
 
@@ -462,8 +467,10 @@ class AuditLogRepository {
           await http
               .post(
                 uri,
-                headers: headers,
-                body: jsonEncode(
+                headers:
+                    headers,
+                body:
+                    jsonEncode(
                   <String, dynamic>{
                     'structuredQuery':
                         structuredQuery,
@@ -472,7 +479,8 @@ class AuditLogRepository {
               )
               .timeout(
                 const Duration(
-                  seconds: 25,
+                  seconds:
+                      25,
                 ),
               );
     }
@@ -545,6 +553,10 @@ class AuditLogRepository {
     return logs;
   }
 
+  // =========================================================
+  // LOCAL FILTER
+  // =========================================================
+
   List<AuditLog> _filterLocal(
     List<AuditLog> logs, {
     required String action,
@@ -581,6 +593,10 @@ class AuditLogRepository {
     return result;
   }
 
+  // =========================================================
+  // REST MODEL
+  // =========================================================
+
   AuditLog _fromRest(
     String id,
     Map<String, dynamic> data,
@@ -599,7 +615,8 @@ class AuditLogRepository {
     }
 
     return AuditLog(
-      id: id,
+      id:
+          id,
       action:
           (data['action'] ?? '')
               .toString(),
@@ -617,9 +634,14 @@ class AuditLogRepository {
                 data['createdAt'],
               ) ??
               DateTime.now(),
-      details: details,
+      details:
+          details,
     );
   }
+
+  // =========================================================
+  // DATE
+  // =========================================================
 
   DateTime? _parseDate(
     dynamic value,
@@ -641,10 +663,13 @@ class AuditLogRepository {
     return null;
   }
 
+  // =========================================================
+  // WINDOWS ERROR
+  // =========================================================
+
   void _throwWindowsError(
-    http.Response response, {
-    bool writeOperation = false,
-  }) {
+    http.Response response,
+  ) {
     switch (response.statusCode) {
       case 401:
         throw StateError(
@@ -654,9 +679,7 @@ class AuditLogRepository {
 
       case 403:
         throw StateError(
-          writeOperation
-              ? 'لا توجد صلاحية لتعديل أو حذف سجل العمليات.'
-              : 'لا توجد صلاحية لقراءة سجل العمليات.',
+          'لا توجد صلاحية لقراءة سجل العمليات.',
         );
 
       case 429:
@@ -678,9 +701,7 @@ class AuditLogRepository {
     }
 
     var message =
-        writeOperation
-            ? 'تعذر تعديل سجل العمليات.'
-            : 'تعذر تحميل سجل العمليات.';
+        'تعذر تحميل سجل العمليات.';
 
     try {
       final decoded =
@@ -706,7 +727,9 @@ class AuditLogRepository {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      // نستخدم الرسالة الافتراضية.
+    }
 
     throw StateError(
       '$message '
@@ -714,6 +737,10 @@ class AuditLogRepository {
     );
   }
 }
+
+// ===========================================================
+// STREAM FIRST VALUE
+// ===========================================================
 
 extension _AuditStreamStart<T>
     on Stream<T> {
