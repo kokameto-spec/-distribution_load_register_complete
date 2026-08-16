@@ -32,27 +32,34 @@ jobs:
           $env:CMAKE_POLICY_VERSION_MINIMUM="3.5"
           flutter build windows --release
 
-      - name: Verify Windows Release
+      - name: Add Visual C++ Runtime DLLs
         shell: powershell
         run: |
           $release = "build\windows\x64\runner\Release"
 
-          if (-not (Test-Path $release)) {
-            Write-Error "Windows Release folder not found"
+          $vcRedistRoot = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC"
+
+          if (-not (Test-Path $vcRedistRoot)) {
+            Write-Error "Visual C++ Redistributable folder not found"
             exit 1
           }
 
-          if (-not (Test-Path "$release\distribution_load_register_final.exe")) {
-            Write-Error "EXE file not found"
+          $latest = Get-ChildItem $vcRedistRoot -Directory |
+                    Sort-Object Name -Descending |
+                    Select-Object -First 1
+
+          $crtPath = Join-Path $latest.FullName "x64\Microsoft.VC143.CRT"
+
+          if (-not (Test-Path $crtPath)) {
+            Write-Error "Microsoft.VC143.CRT folder not found"
             exit 1
           }
 
-          Write-Host "EXE found successfully"
+          Copy-Item "$crtPath\*.dll" $release -Force
 
-      - name: Upload Windows Program
-        uses: actions/upload-artifact@v4
-        with:
-          name: Distribution-Load-Register-Windows-x64-Compatible
-          path: build/windows/x64/runner/Release/
-          retention-days: 30
-          if-no-files-found: error
+          Write-Host "Visual C++ Runtime DLLs copied successfully"
+
+      - name: Verify Windows Release
+        shell: powershell
+        run: |
+          $
