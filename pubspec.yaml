@@ -1,65 +1,41 @@
-name: Build Windows EXE
+name: distribution_load_register_final
+description: سجل أحمال الموزعات - النسخة السحابية
+publish_to: 'none'
 
-on:
-  workflow_dispatch:
+version: 1.0.0+3
 
-jobs:
-  build:
-    runs-on: windows-2022
+environment:
+  sdk: ">=3.4.0 <4.0.0"
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+dependencies:
+  flutter:
+    sdk: flutter
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.8'
-          channel: 'stable'
-          cache: true
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  intl: ^0.19.0
 
-      - name: Enable Windows desktop
-        shell: powershell
-        run: flutter config --enable-windows-desktop
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
 
-      - name: Get dependencies
-        shell: powershell
-        run: flutter pub get
+  connectivity_plus: ^6.1.5
+  crypto: ^3.0.6
+  http: ^1.2.2
 
-      - name: Build Windows Release
-        shell: powershell
-        run: |
-          $env:CMAKE_POLICY_VERSION_MINIMUM="3.5"
-          flutter build windows --release
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  excel: ^4.0.6
+  file_saver: ^0.3.1
 
-      - name: Add Visual C++ Runtime DLLs
-        shell: powershell
-        run: |
-          $release = "build\windows\x64\runner\Release"
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
-          $vcRedistRoot = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC"
+  flutter_lints: ^5.0.0
 
-          if (-not (Test-Path $vcRedistRoot)) {
-            Write-Error "Visual C++ Redistributable folder not found"
-            exit 1
-          }
+flutter:
+  uses-material-design: true
 
-          $latest = Get-ChildItem $vcRedistRoot -Directory |
-                    Sort-Object Name -Descending |
-                    Select-Object -First 1
-
-          $crtPath = Join-Path $latest.FullName "x64\Microsoft.VC143.CRT"
-
-          if (-not (Test-Path $crtPath)) {
-            Write-Error "Microsoft.VC143.CRT folder not found"
-            exit 1
-          }
-
-          Copy-Item "$crtPath\*.dll" $release -Force
-
-          Write-Host "Visual C++ Runtime DLLs copied successfully"
-
-      - name: Verify Windows Release
-        shell: powershell
-        run: |
-          $release = "build\windows\x
+  assets:
+    - assets/images/company_logo.png
