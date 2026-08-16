@@ -37,29 +37,87 @@ jobs:
         run: |
           $release = "build\windows\x64\runner\Release"
 
-          $vcRedistRoot = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC"
-
-          if (-not (Test-Path $vcRedistRoot)) {
-            Write-Error "Visual C++ Redistributable folder not found"
+          if (-not (Test-Path $release)) {
+            Write-Error "Windows Release folder not found"
             exit 1
           }
 
-          $latest = Get-ChildItem $vcRedistRoot -Directory |
-                    Sort-Object Name -Descending |
-                    Select-Object -First 1
+          $vsRoot = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          $redistRoot = Join-Path $vsRoot "VC\Redist\MSVC"
 
-          $crtPath = Join-Path $latest.FullName "x64\Microsoft.VC143.CRT"
-
-          if (-not (Test-Path $crtPath)) {
-            Write-Error "Microsoft.VC143.CRT folder not found"
+          if (-not (Test-Path $redistRoot)) {
+            Write-Error "Visual C++ Redist root not found: $redistRoot"
             exit 1
           }
 
-          Copy-Item "$crtPath\*.dll" $release -Force
+          Write-Host "Searching for x64 Visual C++ Runtime..."
+
+          $msvcp = Get-ChildItem $redistRoot `
+            -Recurse `
+            -Filter "msvcp140.dll" `
+            -File |
+            Where-Object {
+              $_.FullName -match '\\x64\\' -and
+              $_.FullName -notmatch 'debug'
+            } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if ($null -eq $msvcp) {
+            Write-Error "Could not find x64 msvcp140.dll"
+            exit 1
+          }
+
+          $crtFolder = $msvcp.Directory.FullName
+
+          Write-Host "CRT folder found:"
+          Write-Host $crtFolder
+
+          Copy-Item "$crtFolder\*.dll" $release -Force
 
           Write-Host "Visual C++ Runtime DLLs copied successfully"
 
-      - name: Verify Windows Release
+      - name: Verify Windows Package
         shell: powershell
         run: |
-          $
+          $release = "build\windows\x64\runner\Release"
+
+          $requiredFiles = @(
+            "distribution_load_register_final.exe",
+            "flutter_windows.dll",
+            "msvcp140.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+          )
+
+          foreach ($file in $requiredFiles) {
+            $fullPath = Join-Path $release $file
+
+            if (-not (Test-Path $fullPath)) {
+              Write-Error "Required file missing: $file"
+              exit 1
+            }
+
+            Write-Host "OK: $file"
+          }
+
+          if (-not (Test-Path "$release\data")) {
+            Write-Error "Flutter data folder missing"
+            exit 1
+          }
+
+          Write-Host "Windows package verification completed successfully"
+
+      - name: Show Release Files
+        shell: powershell
+        run: |
+          Get-ChildItem "build\windows\x64\runner\Release" |
+          Select-Object Name, Length
+
+      - name: Upload Windows Program
+        uses: actions/upload-artifact@v4
+        with:
+          name: Distribution-Load-Register-Windows-x64-Portable
+          path: build/windows/x64/runner/Release/
+          retention-days: 30
+          if-no-files-found: error
