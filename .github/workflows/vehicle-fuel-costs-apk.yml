@@ -25,8 +25,9 @@ jobs:
 
       - name: Generate Android platform
         run: |
-          rm -rf android
+          rm -rf android test
           flutter create --platforms=android --project-name vehicle_fuel_costs .
+          rm -rf test
 
       - name: Get packages
         run: flutter pub get
