@@ -1,13 +1,16 @@
 import 'package:firebase_core/firebase_core.dart';
 
 class AppConfig {
+  static const ministryName = 'وزارة الكهرباء والطاقة المتجددة';
   static const companyName = 'شركة جنوب القاهرة لتوزيع الكهرباء';
+  static const controlName = 'تحكم ٢٦';
   static const departmentName = 'وسائل النقل';
   static const reportTitle = 'تقرير تموين سيارة';
-  static const approvalTitle = 'الاعتماد';
 
-  // Firebase public app configuration. Environment values can still override
-  // these defaults during CI builds if needed.
+  static const driverSignature = 'توقيع السائق';
+  static const transportHeadSignature = 'توقيع رئيس وسائل النقل';
+  static const generalManagerSignature = 'توقيع المدير العام';
+
   static const firebaseApiKey = String.fromEnvironment(
     'FIREBASE_API_KEY',
     defaultValue: 'AIzaSyCM4pEKqvSyBwJrKdocayd0bJJ8oJnRo6o',
