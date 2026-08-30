@@ -22,7 +22,7 @@ dependencies:
   connectivity_plus: ^7.0.0
   path_provider: ^2.1.5
   crypto: ^3.0.6
-  public_file_saver: ^0.3.1
+  public_file_saver: ^1.1.0
   image: ^4.5.4
   flutter_svg: ^2.2.1
 
