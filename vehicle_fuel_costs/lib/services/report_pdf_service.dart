@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -17,13 +18,17 @@ class ReportPdfService {
     final doc = pw.Document();
     final regular = await PdfGoogleFonts.cairoRegular();
     final bold = await PdfGoogleFonts.cairoBold();
-    final logo = pw.MemoryImage((await rootBundle.load('assets/company_logo.png')).buffer.asUint8List());
+    final logoBytes = (await rootBundle.load('assets/company_logo.png')).buffer.asUint8List();
+    final logo = _safePdfImage(logoBytes);
 
     for (final record in records) {
       final rawImages = await FirebaseService.instance.fuelingImages(record.id);
-      final images = <pw.MemoryImage>[for (final bytes in rawImages.take(4)) pw.MemoryImage(bytes)];
+      final images = <pw.MemoryImage>[];
+      for (final bytes in rawImages.take(4)) {
+        images.add(_safePdfImage(bytes));
+      }
       while (images.length < 4) {
-        images.add(pw.MemoryImage(Uint8List.fromList(_transparentPng)));
+        images.add(_safePdfImage(Uint8List.fromList(_transparentPng)));
       }
 
       doc.addPage(
@@ -37,40 +42,31 @@ class ReportPdfService {
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
                 pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Image(logo, width: 62, height: 62, fit: pw.BoxFit.contain),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text(AppConfig.ministryName, style: pw.TextStyle(font: bold, fontSize: 10)),
-                        pw.Text(AppConfig.companyName, style: pw.TextStyle(font: bold, fontSize: 10)),
-                        pw.Text(AppConfig.controlName, style: pw.TextStyle(font: bold, fontSize: 10)),
-                        pw.Text(AppConfig.departmentName, style: pw.TextStyle(font: bold, fontSize: 11)),
-                      ],
+                    pw.Expanded(
+                      child: pw.Text(
+                        AppConfig.reportTitle,
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(font: bold, fontSize: 12),
+                      ),
                     ),
+                    pw.SizedBox(width: 62),
                   ],
                 ),
-                pw.Text(AppConfig.reportTitle, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: bold, fontSize: 11)),
                 pw.SizedBox(height: 4),
                 _infoGrid(record, bold),
                 pw.SizedBox(height: 5),
                 pw.Expanded(
                   child: pw.GridView(
                     crossAxisCount: 2,
-                    childAspectRatio: .92,
+                    childAspectRatio: .88,
                     crossAxisSpacing: 5,
                     mainAxisSpacing: 5,
                     children: [for (final image in images.take(4)) _photo(image)],
                   ),
                 ),
-                pw.SizedBox(height: 4),
-                pw.Row(children: [
-                  pw.Expanded(child: pw.Text('السائق: ${record.driverName}', style: const pw.TextStyle(fontSize: 8))),
-                  pw.Expanded(child: pw.Text('العداد: ${NumberFormat.decimalPattern().format(record.odometer)} كم', textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 8))),
-                ]),
-                pw.SizedBox(height: 8),
+                pw.SizedBox(height: 10),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
@@ -86,6 +82,19 @@ class ReportPdfService {
       );
     }
     return doc.save();
+  }
+
+  static pw.MemoryImage _safePdfImage(Uint8List bytes) {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) {
+        return pw.MemoryImage(Uint8List.fromList(_transparentPng));
+      }
+      final jpg = Uint8List.fromList(img.encodeJpg(decoded, quality: 82));
+      return pw.MemoryImage(jpg);
+    } catch (_) {
+      return pw.MemoryImage(Uint8List.fromList(_transparentPng));
+    }
   }
 
   static pw.Widget _infoGrid(FuelingRecord r, pw.Font bold) {
@@ -143,6 +152,9 @@ class ReportPdfService {
     final doc = pw.Document();
     final regular = await PdfGoogleFonts.cairoRegular();
     final bold = await PdfGoogleFonts.cairoBold();
+    final logoBytes = (await rootBundle.load('assets/company_logo.png')).buffer.asUint8List();
+    final logo = _safePdfImage(logoBytes);
+
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
@@ -152,9 +164,17 @@ class ReportPdfService {
           pw.Directionality(
             textDirection: pw.TextDirection.rtl,
             child: pw.Column(children: [
-              pw.Text('${AppConfig.companyName} - ${AppConfig.controlName} - ${AppConfig.departmentName}', style: pw.TextStyle(font: bold, fontSize: 16)),
-              pw.SizedBox(height: 4),
-              pw.Text('كشف الاستهلاك الشهري - $monthKey', style: pw.TextStyle(font: bold, fontSize: 14)),
+              pw.Row(children: [
+                pw.Image(logo, width: 52, height: 52, fit: pw.BoxFit.contain),
+                pw.Expanded(
+                  child: pw.Text(
+                    'كشف الاستهلاك الشهري - $monthKey',
+                    textAlign: pw.TextAlign.center,
+                    style: pw.TextStyle(font: bold, fontSize: 15),
+                  ),
+                ),
+                pw.SizedBox(width: 52),
+              ]),
               pw.SizedBox(height: 12),
               pw.TableHelper.fromTextArray(
                 headers: const ['التاريخ', 'رقم السيارة', 'العداد السابق', 'العداد الحالي', 'المسافة', 'توقيع السائق', 'توقيع مسئول النقل'],
