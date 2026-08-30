@@ -1,7 +1,7 @@
 name: vehicle_fuel_costs
 description: تطبيق تسجيل تموين واستهلاك السيارات للسائق والمدير
 publish_to: 'none'
-version: 0.2.1+3
+version: 0.3.0+3
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -22,7 +22,9 @@ dependencies:
   connectivity_plus: ^7.0.0
   path_provider: ^2.1.5
   crypto: ^3.0.6
-  public_file_saver: ^1.1.0
+  public_file_saver: ^0.3.1
+  image: ^4.5.4
+  flutter_svg: ^2.2.1
 
 dev_dependencies:
   flutter_test:
@@ -33,3 +35,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/company_logo.png
+    - assets/fueling_car.svg
