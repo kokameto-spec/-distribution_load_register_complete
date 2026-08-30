@@ -6,6 +6,7 @@ on:
     branches:
       - vehicle-fuel-costs-build
 
+# v0.7 silver/gold UI build trigger
 jobs:
   build:
     runs-on: ubuntu-latest
