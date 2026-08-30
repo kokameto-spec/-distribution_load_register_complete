@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'config/app_config.dart';
 import 'screens/home_screen.dart';
 import 'screens/intro_screen.dart';
+import 'services/firebase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,7 @@ Future<void> main() async {
   if (AppConfig.firebaseConfigured) {
     try {
       await Firebase.initializeApp(options: AppConfig.firebaseOptions);
+      await FirebaseService.instance.ensureAnonymousAuth();
     } catch (e) {
       firebaseError = e;
     }
@@ -95,7 +97,7 @@ class _SetupScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'أضف مفاتيح Firebase كـ --dart-define أثناء البيلد. لا يتم وضع أي مفاتيح سرية داخل الكود.',
+                      'أضف إعدادات Firebase الخاصة بالمشروع ثم أعد بناء التطبيق.',
                     ),
                     const SizedBox(height: 12),
                     Text(
