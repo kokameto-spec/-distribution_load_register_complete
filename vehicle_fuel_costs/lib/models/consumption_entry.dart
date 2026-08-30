@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class ConsumptionEntry {
   final String id;
   final DateTime date;
+  final String vehicleCode;
   final String vehicleNumber;
   final int? previousOdometer;
   final int currentOdometer;
@@ -12,6 +13,7 @@ class ConsumptionEntry {
   const ConsumptionEntry({
     required this.id,
     required this.date,
+    required this.vehicleCode,
     required this.vehicleNumber,
     required this.previousOdometer,
     required this.currentOdometer,
@@ -21,10 +23,13 @@ class ConsumptionEntry {
 
   factory ConsumptionEntry.fromMap(String id, Map<String, dynamic> map) {
     final rawDate = map['createdAt'];
-    final date = rawDate is Timestamp ? rawDate.toDate() : DateTime.tryParse(rawDate?.toString() ?? '') ?? DateTime.now();
+    final date = rawDate is Timestamp
+        ? rawDate.toDate()
+        : DateTime.tryParse(rawDate?.toString() ?? '') ?? DateTime.now();
     return ConsumptionEntry(
       id: id,
       date: date,
+      vehicleCode: (map['vehicleCode'] ?? '').toString(),
       vehicleNumber: (map['vehicleNumber'] ?? '').toString(),
       previousOdometer: (map['previousOdometer'] as num?)?.toInt(),
       currentOdometer: (map['currentOdometer'] as num?)?.toInt() ?? 0,
