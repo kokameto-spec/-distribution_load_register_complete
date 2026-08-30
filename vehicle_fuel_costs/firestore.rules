@@ -7,31 +7,30 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    match /app_users/{username} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
+
     match /vehicles/{vehicleCode} {
-      allow read: if signedIn();
-      allow create, update: if signedIn();
+      allow read, create, update: if signedIn();
       allow delete: if false;
     }
 
     match /fuelings/{fuelingId} {
-      allow read: if signedIn();
-      allow create: if signedIn();
-      allow update, delete: if false;
+      allow read, create, update, delete: if signedIn();
     }
 
     match /fueling_images/{imageId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read, delete: if signedIn();
+      allow create, update: if signedIn()
         && request.resource.data.data is bytes
         && request.resource.data.order >= 1
         && request.resource.data.order <= 4;
-      allow update, delete: if false;
     }
 
     match /consumption/{entryId} {
-      allow read: if signedIn();
-      allow create: if signedIn();
-      allow update, delete: if false;
+      allow read, create, update, delete: if signedIn();
     }
 
     match /{document=**} {
