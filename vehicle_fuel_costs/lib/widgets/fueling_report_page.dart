@@ -29,22 +29,19 @@ class FuelingReportPage extends StatelessWidget {
                 children: [
                   Row(
                     textDirection: ui.TextDirection.ltr,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Image.asset('assets/company_logo.png', width: 58, height: 58, fit: BoxFit.contain),
-                      const Spacer(),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: const [
-                          Text(AppConfig.ministryName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                          Text(AppConfig.companyName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                          Text(AppConfig.controlName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                          Text(AppConfig.departmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF0B4A8B))),
-                        ],
+                      Image.asset('assets/company_logo.png', width: 62, height: 62, fit: BoxFit.contain),
+                      const Expanded(
+                        child: Center(
+                          child: Text(
+                            AppConfig.reportTitle,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 62),
                     ],
                   ),
-                  const Text(AppConfig.reportTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   const SizedBox(height: 4),
                   Table(
                     border: TableBorder.all(color: Colors.black38, width: .6),
@@ -69,7 +66,7 @@ class FuelingReportPage extends StatelessWidget {
                               crossAxisCount: 2,
                               crossAxisSpacing: 5,
                               mainAxisSpacing: 5,
-                              childAspectRatio: .92,
+                              childAspectRatio: .88,
                             ),
                             itemCount: 4,
                             itemBuilder: (_, i) => ClipRRect(
@@ -77,20 +74,19 @@ class FuelingReportPage extends StatelessWidget {
                               child: Container(
                                 decoration: BoxDecoration(border: Border.all(color: Colors.black45, width: .7)),
                                 child: i < images.length
-                                    ? Image.memory(images[i], width: double.infinity, height: double.infinity, fit: BoxFit.cover)
+                                    ? Image.memory(
+                                        images[i],
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image)),
+                                      )
                                     : const Center(child: Icon(Icons.image_not_supported_outlined)),
                               ),
                             ),
                           ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(child: Text('السائق: ${record.driverName}', style: const TextStyle(fontSize: 8))),
-                      Expanded(child: Text('العداد: ${NumberFormat.decimalPattern().format(record.odometer)} كم', textAlign: TextAlign.center, style: const TextStyle(fontSize: 8))),
-                    ],
-                  ),
-                  const SizedBox(height: 9),
+                  const SizedBox(height: 10),
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -122,6 +118,7 @@ class FuelingReportPage extends StatelessWidget {
 class _Signature extends StatelessWidget {
   final String text;
   const _Signature(this.text);
+
   @override
   Widget build(BuildContext context) => SizedBox(
         width: 95,
