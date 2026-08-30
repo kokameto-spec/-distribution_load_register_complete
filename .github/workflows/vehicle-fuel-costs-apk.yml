@@ -29,6 +29,16 @@ jobs:
           flutter create --platforms=android --org eg.tahakom26 --project-name vehicle_fuel_costs .
           rm -rf test
 
+      - name: Generate fueling-car launcher icon
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin
+          rsvg-convert -w 48  -h 48  assets/fueling_car.svg -o android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          rsvg-convert -w 72  -h 72  assets/fueling_car.svg -o android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          rsvg-convert -w 96  -h 96  assets/fueling_car.svg -o android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          rsvg-convert -w 144 -h 144 assets/fueling_car.svg -o android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          rsvg-convert -w 192 -h 192 assets/fueling_car.svg -o android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
       - name: Get packages
         run: flutter pub get
 
