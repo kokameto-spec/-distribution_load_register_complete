@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -15,7 +15,6 @@ class FirebaseService {
   static final instance = FirebaseService._();
 
   final _db = FirebaseFirestore.instance;
-  final _storage = FirebaseStorage.instance;
   final _auth = FirebaseAuth.instance;
   final _uuid = const Uuid();
 
@@ -35,12 +34,15 @@ class FirebaseService {
   }
 
   Future<void> saveVehicle(Vehicle vehicle) async {
+    await ensureAnonymousAuth();
     await _db.collection('vehicles').doc(vehicle.code).set(vehicle.toMap());
   }
 
   Stream<List<Vehicle>> vehiclesStream() {
     return _db.collection('vehicles').snapshots().map((snapshot) {
-      final items = snapshot.docs.map((d) => Vehicle.fromMap(d.data(), fallbackCode: d.id)).toList();
+      final items = snapshot.docs
+          .map((d) => Vehicle.fromMap(d.data(), fallbackCode: d.id))
+          .toList();
       items.sort((a, b) => a.number.compareTo(b.number));
       return items;
     });
@@ -52,18 +54,25 @@ class FirebaseService {
     required int odometer,
     required List<File> images,
   }) async {
-    if (images.length != 4) throw StateError('يجب إرسال أربع صور بالترتيب.');
+    if (images.length != 4) {
+      throw StateError('يجب إرسال أربع صور بالترتيب.');
+    }
     await ensureAnonymousAuth();
 
     final now = DateTime.now();
     final monthKey = DateFormat('yyyy-MM').format(now);
     final id = _uuid.v4();
 
-    final urls = <String>[];
+    final imageBytes = <Uint8List>[];
+    const maxImageBytes = 900 * 1024;
     for (var i = 0; i < images.length; i++) {
-      final ref = _storage.ref().child('fuelings/${vehicle.code}/$monthKey/$id/${i + 1}.jpg');
-      await ref.putFile(images[i], SettableMetadata(contentType: 'image/jpeg'));
-      urls.add(await ref.getDownloadURL());
+      final bytes = await images[i].readAsBytes();
+      if (bytes.length > maxImageBytes) {
+        throw StateError(
+          'الصورة رقم ${i + 1} حجمها كبير. أعد التقاطها ثم حاول الإرسال مرة أخرى.',
+        );
+      }
+      imageBytes.add(bytes);
     }
 
     final previous = await _lastOdometer(vehicle.code);
@@ -83,8 +92,22 @@ class FirebaseService {
       'odometer': odometer,
       'createdAt': Timestamp.fromDate(now),
       'monthKey': monthKey,
-      'imageUrls': urls,
+      'imageCount': 4,
+      'imageStorage': 'firestore',
     });
+
+    for (var i = 0; i < imageBytes.length; i++) {
+      final imageRef = _db.collection('fueling_images').doc('${id}_${i + 1}');
+      batch.set(imageRef, {
+        'fuelingId': id,
+        'vehicleCode': vehicle.code,
+        'order': i + 1,
+        'contentType': 'image/jpeg',
+        'data': Blob(imageBytes[i]),
+        'createdAt': Timestamp.fromDate(now),
+        'monthKey': monthKey,
+      });
+    }
 
     final consumptionRef = _db.collection('consumption').doc(id);
     batch.set(consumptionRef, {
@@ -98,7 +121,21 @@ class FirebaseService {
       'monthKey': monthKey,
       'fuelingId': id,
     });
+
     await batch.commit();
+  }
+
+  Future<List<Uint8List>> fuelingImages(String fuelingId) async {
+    await ensureAnonymousAuth();
+    final images = <Uint8List>[];
+    for (var i = 1; i <= 4; i++) {
+      final doc = await _db.collection('fueling_images').doc('${fuelingId}_$i').get();
+      final data = doc.data()?['data'];
+      if (data is Blob) {
+        images.add(data.bytes);
+      }
+    }
+    return images;
   }
 
   Future<int?> _lastOdometer(String vehicleCode) async {
@@ -111,22 +148,35 @@ class FirebaseService {
     rows.sort((a, b) {
       final at = a['createdAt'] as Timestamp?;
       final bt = b['createdAt'] as Timestamp?;
-      return (bt?.millisecondsSinceEpoch ?? 0).compareTo(at?.millisecondsSinceEpoch ?? 0);
+      return (bt?.millisecondsSinceEpoch ?? 0)
+          .compareTo(at?.millisecondsSinceEpoch ?? 0);
     });
     return (rows.first['currentOdometer'] as num?)?.toInt();
   }
 
   Stream<List<FuelingRecord>> monthlyFuelings(String monthKey) {
-    return _db.collection('fuelings').where('monthKey', isEqualTo: monthKey).snapshots().map((snapshot) {
-      final items = snapshot.docs.map((d) => FuelingRecord.fromMap(d.id, d.data())).toList();
+    return _db
+        .collection('fuelings')
+        .where('monthKey', isEqualTo: monthKey)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((d) => FuelingRecord.fromMap(d.id, d.data()))
+          .toList();
       items.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return items;
     });
   }
 
   Stream<List<ConsumptionEntry>> monthlyConsumption(String monthKey) {
-    return _db.collection('consumption').where('monthKey', isEqualTo: monthKey).snapshots().map((snapshot) {
-      final items = snapshot.docs.map((d) => ConsumptionEntry.fromMap(d.id, d.data())).toList();
+    return _db
+        .collection('consumption')
+        .where('monthKey', isEqualTo: monthKey)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((d) => ConsumptionEntry.fromMap(d.id, d.data()))
+          .toList();
       items.sort((a, b) => a.date.compareTo(b.date));
       return items;
     });
