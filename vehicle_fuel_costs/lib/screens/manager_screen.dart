@@ -54,7 +54,14 @@ class _ManagerScreenState extends State<ManagerScreen> {
         builder: (_, snap) {
           final numbers = ['الكل', ...?snap.data?.map((v) => v.number)];
           if (!numbers.contains(_vehicleFilter)) _vehicleFilter = 'الكل';
-          return _monthBar(trailing: DropdownButtonFormField<String>(value: _vehicleFilter, decoration: const InputDecoration(labelText: 'السيارة'), items: numbers.toSet().map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(), onChanged: (v) => setState(() => _vehicleFilter = v ?? 'الكل'));
+          return _monthBar(
+            trailing: DropdownButtonFormField<String>(
+              initialValue: _vehicleFilter,
+              decoration: const InputDecoration(labelText: 'السيارة'),
+              items: numbers.toSet().map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
+              onChanged: (v) => setState(() => _vehicleFilter = v ?? 'الكل'),
+            ),
+          );
         },
       ),
       Expanded(
