@@ -1,4 +1,4 @@
-import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -14,7 +14,7 @@ Future<void> main() async {
   Object? firebaseError;
   if (AppConfig.firebaseConfigured) {
     try {
-      await Firebase.initializeApp(options: AppConfig.firebaseOptions);
+      await fb.Firebase.initializeApp(options: AppConfig.firebaseOptions);
       await FirebaseService.instance.ensureAnonymousAuth();
     } catch (e) {
       firebaseError = e;
