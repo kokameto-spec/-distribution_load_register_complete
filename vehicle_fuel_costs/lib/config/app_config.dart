@@ -6,11 +6,28 @@ class AppConfig {
   static const reportTitle = 'تقرير تموين سيارة';
   static const approvalTitle = 'الاعتماد';
 
-  static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
-  static const firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
-  static const firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
-  static const firebaseMessagingSenderId = String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
-  static const firebaseStorageBucket = String.fromEnvironment('FIREBASE_STORAGE_BUCKET');
+  // Firebase public app configuration. Environment values can still override
+  // these defaults during CI builds if needed.
+  static const firebaseApiKey = String.fromEnvironment(
+    'FIREBASE_API_KEY',
+    defaultValue: 'AIzaSyCM4pEKqvSyBwJrKdocayd0bJJ8oJnRo6o',
+  );
+  static const firebaseAppId = String.fromEnvironment(
+    'FIREBASE_APP_ID',
+    defaultValue: '1:294540598095:android:b4a49c12622deb7a43033a',
+  );
+  static const firebaseProjectId = String.fromEnvironment(
+    'FIREBASE_PROJECT_ID',
+    defaultValue: 'vehicle-fuel-costs',
+  );
+  static const firebaseMessagingSenderId = String.fromEnvironment(
+    'FIREBASE_MESSAGING_SENDER_ID',
+    defaultValue: '294540598095',
+  );
+  static const firebaseStorageBucket = String.fromEnvironment(
+    'FIREBASE_STORAGE_BUCKET',
+    defaultValue: 'vehicle-fuel-costs.firebasestorage.app',
+  );
 
   static bool get firebaseConfigured =>
       firebaseApiKey.isNotEmpty &&
