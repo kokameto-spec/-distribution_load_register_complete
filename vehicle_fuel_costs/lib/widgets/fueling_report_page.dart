@@ -13,13 +13,6 @@ class FuelingReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = [
-      'مؤشر الوقود قبل التموين',
-      'مضخة الوقود',
-      'مؤشر الوقود بعد التموين',
-      'إيصال المحطة',
-    ];
-
     return FutureBuilder<List<Uint8List>>(
       future: FirebaseService.instance.fuelingImages(record.id),
       builder: (context, snapshot) {
@@ -30,122 +23,79 @@ class FuelingReportPage extends StatelessWidget {
             color: Colors.white,
             elevation: 2,
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
               child: Column(
                 children: [
                   Row(
+                    textDirection: TextDirection.ltr,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Image.asset(
-                        'assets/company_logo.png',
-                        width: 54,
-                        height: 54,
+                      Image.asset('assets/company_logo.png', width: 58, height: 58, fit: BoxFit.contain),
+                      const Spacer(),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: const [
+                          Text(AppConfig.ministryName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                          Text(AppConfig.companyName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                          Text(AppConfig.controlName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                          Text(AppConfig.departmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF0B4A8B))),
+                        ],
                       ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(
-                              AppConfig.companyName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Text(
-                              AppConfig.departmentName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0B4A8B),
-                              ),
-                            ),
-                            const Text(AppConfig.reportTitle),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 54),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const Text(AppConfig.reportTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 4),
                   Table(
-                    border: TableBorder.all(color: Colors.black26),
+                    border: TableBorder.all(color: Colors.black38, width: .6),
                     children: [
-                      TableRow(
-                        children: [
-                          _cell(
-                            'التاريخ',
-                            DateFormat('yyyy/MM/dd  HH:mm')
-                                .format(record.createdAt),
-                          ),
-                          _cell('رقم السيارة', record.vehicleNumber),
-                        ],
-                      ),
-                      TableRow(
-                        children: [
-                          _cell('نوع الوقود', record.fuelType),
-                          _cell('موديل السيارة', record.vehicleModel),
-                        ],
-                      ),
+                      TableRow(children: [
+                        _cell('التاريخ', DateFormat('yyyy/MM/dd HH:mm').format(record.createdAt)),
+                        _cell('رقم السيارة', record.vehicleNumber),
+                      ]),
+                      TableRow(children: [
+                        _cell('نوع الوقود', record.fuelType),
+                        _cell('الموديل', record.vehicleModel),
+                      ]),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 5),
                   Expanded(
                     child: snapshot.connectionState == ConnectionState.waiting
                         ? const Center(child: CircularProgressIndicator())
                         : GridView.builder(
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: .95,
+                              crossAxisSpacing: 5,
+                              mainAxisSpacing: 5,
+                              childAspectRatio: .92,
                             ),
                             itemCount: 4,
-                            itemBuilder: (_, i) => Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.black26),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              padding: const EdgeInsets.all(5),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    labels[i],
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Expanded(
-                                    child: i < images.length
-                                        ? Image.memory(
-                                            images[i],
-                                            width: double.infinity,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Center(
-                                              child: Icon(Icons.broken_image),
-                                            ),
-                                          )
-                                        : const Center(
-                                            child: Icon(
-                                              Icons.image_not_supported_outlined,
-                                            ),
-                                          ),
-                                  ),
-                                ],
+                            itemBuilder: (_, i) => ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: Container(
+                                decoration: BoxDecoration(border: Border.all(color: Colors.black45, width: .7)),
+                                child: i < images.length
+                                    ? Image.memory(images[i], width: double.infinity, height: double.infinity, fit: BoxFit.cover)
+                                    : const Center(child: Icon(Icons.image_not_supported_outlined)),
                               ),
                             ),
                           ),
                   ),
+                  const SizedBox(height: 4),
                   Row(
+                    children: [
+                      Expanded(child: Text('السائق: ${record.driverName}', style: const TextStyle(fontSize: 8))),
+                      Expanded(child: Text('العداد: ${NumberFormat.decimalPattern().format(record.odometer)} كم', textAlign: TextAlign.center, style: const TextStyle(fontSize: 8))),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('السائق: ${record.driverName}'),
-                      Text(
-                        'العداد: ${NumberFormat.decimalPattern().format(record.odometer)} كم',
-                      ),
-                      const Text('الاعتماد: ....................'),
+                      _Signature(AppConfig.driverSignature),
+                      _Signature(AppConfig.transportHeadSignature),
+                      _Signature(AppConfig.generalManagerSignature),
                     ],
                   ),
                 ],
@@ -158,15 +108,27 @@ class FuelingReportPage extends StatelessWidget {
   }
 
   Widget _cell(String label, String value) => Padding(
-        padding: const EdgeInsets.all(7),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Flexible(child: Text(value)),
+            Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 8.5)),
+            Expanded(child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 8.5))),
+          ],
+        ),
+      );
+}
+
+class _Signature extends StatelessWidget {
+  final String text;
+  const _Signature(this.text);
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 95,
+        child: Column(
+          children: [
+            Text(text, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 8)),
+            const SizedBox(height: 9),
+            const Text('........................', style: TextStyle(fontSize: 8)),
           ],
         ),
       );
