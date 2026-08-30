@@ -25,7 +25,6 @@ class AppAuthService {
       final ref = _db.collection('app_users').doc(name);
       var doc = await ref.get();
 
-      // Bootstrap manager so the first installation is never locked out.
       if (!doc.exists && name == 'admin' && password == '2600') {
         await ref.set({
           'username': 'admin',
@@ -47,13 +46,10 @@ class AppAuthService {
         await _cache(user, passHash);
         return user;
       }
-    } catch (_) {
-      // Fall through to the cached credential for true offline login.
-    }
+    } catch (_) {}
 
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getString('cached_username') == name &&
-        prefs.getString('cached_password_hash') == passHash) {
+    if (prefs.getString('cached_username') == name && prefs.getString('cached_password_hash') == passHash) {
       final raw = prefs.getString('cached_user_json');
       if (raw != null && raw.isNotEmpty) {
         final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
@@ -70,21 +66,14 @@ class AppAuthService {
     await prefs.setString('cached_user_json', jsonEncode(user.toMap()));
   }
 
-  Future<void> saveUser({
-    required AppUser user,
-    String? newPassword,
-  }) async {
+  Future<void> saveUser({required AppUser user, String? newPassword}) async {
     await FirebaseService.instance.ensureAnonymousAuth();
     final ref = _db.collection('app_users').doc(user.username.trim().toLowerCase());
     String passwordHash = '';
     final old = await ref.get();
     if (old.exists) passwordHash = (old.data()?['passwordHash'] ?? '').toString();
-    if (newPassword != null && newPassword.isNotEmpty) {
-      passwordHash = _hash(newPassword);
-    }
-    if (passwordHash.isEmpty) {
-      throw StateError('يجب إدخال كلمة مرور للمستخدم الجديد.');
-    }
+    if (newPassword != null && newPassword.isNotEmpty) passwordHash = _hash(newPassword);
+    if (passwordHash.isEmpty) throw StateError('يجب إدخال كلمة مرور للمستخدم الجديد.');
     await ref.set({
       ...user.toMap(),
       'username': user.username.trim().toLowerCase(),
@@ -93,11 +82,18 @@ class AppAuthService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> deleteUser(String username) async {
+    final normalized = username.trim().toLowerCase();
+    if (normalized == 'admin') {
+      throw StateError('لا يمكن حذف حساب المدير الأساسي.');
+    }
+    await FirebaseService.instance.ensureAnonymousAuth();
+    await _db.collection('app_users').doc(normalized).delete();
+  }
+
   Stream<List<AppUser>> usersStream() {
     return _db.collection('app_users').snapshots().map((snap) {
-      final users = snap.docs
-          .map((d) => AppUser.fromMap(d.data(), fallbackUsername: d.id))
-          .toList();
+      final users = snap.docs.map((d) => AppUser.fromMap(d.data(), fallbackUsername: d.id)).toList();
       users.sort((a, b) => a.displayName.compareTo(b.displayName));
       return users;
     });
