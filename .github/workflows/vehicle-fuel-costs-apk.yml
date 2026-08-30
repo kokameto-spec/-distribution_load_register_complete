@@ -26,7 +26,7 @@ jobs:
       - name: Generate Android platform
         run: |
           rm -rf android test
-          flutter create --platforms=android --project-name vehicle_fuel_costs .
+          flutter create --platforms=android --org eg.tahakom26 --project-name vehicle_fuel_costs .
           rm -rf test
 
       - name: Get packages
