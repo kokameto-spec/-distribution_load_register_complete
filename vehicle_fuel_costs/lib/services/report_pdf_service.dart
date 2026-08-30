@@ -1,12 +1,11 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:public_file_saver/public_file_saver.dart';
 
 import '../config/app_config.dart';
 import '../models/consumption_entry.dart';
@@ -125,11 +124,15 @@ class ReportPdfService {
       );
 
   static Future<String> savePdf(Uint8List bytes, String fileName) async {
-    final dir = await getApplicationDocumentsDirectory();
     final safeName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
-    final file = File('${dir.path}/$safeName');
-    await file.writeAsBytes(bytes, flush: true);
-    return file.path;
+    final result = await PublicFileSaver().saveBytes(
+      bytes: bytes,
+      fileName: safeName,
+      mimeType: 'application/pdf',
+      subDir: 'تحكم_26_وسائل_النقل',
+    );
+    if (result == null) return 'تم إلغاء الحفظ';
+    return result.path ?? result.uri ?? result.fileName;
   }
 
   static Future<void> sharePdf(Uint8List bytes, String fileName) {
