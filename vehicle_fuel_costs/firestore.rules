@@ -8,8 +8,7 @@ service cloud.firestore {
     }
 
     match /app_users/{username} {
-      allow read, create, update: if signedIn();
-      allow delete: if false;
+      allow read, create, update, delete: if signedIn();
     }
 
     match /vehicles/{vehicleCode} {
