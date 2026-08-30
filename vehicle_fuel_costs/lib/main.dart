@@ -39,12 +39,23 @@ class FuelCostsApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: blue),
         scaffoldBackgroundColor: const Color(0xFFF5F8FC),
-        appBarTheme: const AppBarTheme(backgroundColor: blue, foregroundColor: Colors.white, centerTitle: true),
-        inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: blue,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+        ),
       ),
-      builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+      builder: (context, child) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: child!,
+      ),
       home: IntroSequence(
-        next: firebaseError == null ? const HomeScreen() : _SetupScreen(error: firebaseError!),
+        next: firebaseError == null
+            ? const HomeScreen()
+            : _SetupScreen(error: firebaseError!),
       ),
     );
   }
@@ -53,17 +64,51 @@ class FuelCostsApp extends StatelessWidget {
 class _SetupScreen extends StatelessWidget {
   final Object error;
   const _SetupScreen({required this.error});
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('إعداد الاتصال')),
-    body: Center(child: Padding(padding: const EdgeInsets.all(24), child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 650), child: Card(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.cloud_off, size: 70, color: Colors.orange),
-      const SizedBox(height: 16),
-      const Text('المشروع جاهز، ويتبقى ربط Firebase', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 12),
-      const Text('أضف مفاتيح Firebase كـ --dart-define أثناء البيلد. لا يتم وضع أي مفاتيح سرية داخل الكود.'),
-      const SizedBox(height: 12),
-      Text('$error', style: const TextStyle(color: Colors.black54)),
-    ]))))),
-  );
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('إعداد الاتصال')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 650),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off,
+                      size: 70,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'المشروع جاهز، ويتبقى ربط Firebase',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'أضف مفاتيح Firebase كـ --dart-define أثناء البيلد. لا يتم وضع أي مفاتيح سرية داخل الكود.',
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '$error',
+                      style: const TextStyle(color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
