@@ -32,22 +32,63 @@ class FuelCostsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF0B4A8B);
+    const silver = Color(0xFFE3E5E8);
+    const silverDark = Color(0xFF8A8F96);
+    const gold = Color(0xFFD4AF37);
+    const goldDark = Color(0xFF8A6A10);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'حساب تكاليف استهلاك السيارات',
       locale: const Locale('ar'),
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: blue),
-        scaffoldBackgroundColor: const Color(0xFFF5F8FC),
+        colorScheme: ColorScheme.fromSeed(seedColor: gold, brightness: Brightness.light),
+        scaffoldBackgroundColor: const Color(0xFFF1F2F4),
         appBarTheme: const AppBarTheme(
-          backgroundColor: blue,
-          foregroundColor: Colors.white,
+          backgroundColor: silver,
+          foregroundColor: Color(0xFF222222),
           centerTitle: true,
+          elevation: 7,
+          shadowColor: silverDark,
+          surfaceTintColor: silver,
         ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
+        tabBarTheme: const TabBarThemeData(
+          labelColor: Color(0xFF2B2B2B),
+          unselectedLabelColor: Color(0xFF5F6368),
+          indicatorColor: gold,
+          dividerColor: silverDark,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: const WidgetStatePropertyAll(gold),
+            foregroundColor: const WidgetStatePropertyAll(Color(0xFF241C08)),
+            elevation: const WidgetStatePropertyAll(7),
+            shadowColor: const WidgetStatePropertyAll(goldDark),
+            shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: const WidgetStatePropertyAll(gold),
+            foregroundColor: const WidgetStatePropertyAll(Color(0xFF241C08)),
+            elevation: const WidgetStatePropertyAll(7),
+            shadowColor: const WidgetStatePropertyAll(goldDark),
+            shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          ),
+        ),
+        iconButtonTheme: IconButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: const WidgetStatePropertyAll(Color(0xFFE8C85B)),
+            foregroundColor: const WidgetStatePropertyAll(Color(0xFF2A230E)),
+            shadowColor: const WidgetStatePropertyAll(goldDark),
+            shape: const WidgetStatePropertyAll(CircleBorder()),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: .86),
+          border: const OutlineInputBorder(),
+          focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: gold, width: 2)),
         ),
       ),
       builder: (context, child) => Directionality(

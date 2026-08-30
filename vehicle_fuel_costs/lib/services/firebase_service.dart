@@ -38,6 +38,11 @@ class FirebaseService {
     await _db.collection('vehicles').doc(vehicle.code).set(vehicle.toMap());
   }
 
+  Future<void> deleteVehicle(String code) async {
+    await ensureAnonymousAuth();
+    await _db.collection('vehicles').doc(code).delete();
+  }
+
   Stream<List<Vehicle>> vehiclesStream() {
     return _db.collection('vehicles').snapshots().map((snapshot) {
       final items = snapshot.docs

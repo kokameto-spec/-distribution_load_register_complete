@@ -12,8 +12,7 @@ service cloud.firestore {
     }
 
     match /vehicles/{vehicleCode} {
-      allow read, create, update: if signedIn();
-      allow delete: if false;
+      allow read, create, update, delete: if signedIn();
     }
 
     match /fuelings/{fuelingId} {

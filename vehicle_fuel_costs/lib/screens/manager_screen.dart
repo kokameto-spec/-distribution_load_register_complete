@@ -409,6 +409,32 @@ class _VehiclesAdmin extends StatefulWidget {
 }
 
 class _VehiclesAdminState extends State<_VehiclesAdmin> {
+  Future<void> _deleteVehicle(Vehicle vehicle) async {
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('حذف السيارة'),
+            content: Text('هل تريد حذف السيارة ${vehicle.number}؟ ستظل التقارير القديمة محفوظة.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف')),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok) return;
+    try {
+      await FirebaseService.instance.deleteVehicle(vehicle.code);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حذف السيارة.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر حذف السيارة: $e')));
+      }
+    }
+  }
+
   Future<void> _edit([Vehicle? existing]) async {
     final code = TextEditingController(text: existing?.code ?? '');
     final number = TextEditingController(text: existing?.number ?? '');
@@ -462,7 +488,14 @@ class _VehiclesAdminState extends State<_VehiclesAdmin> {
                     leading: const CircleAvatar(child: Icon(Icons.directions_car)),
                     title: Text(v.number),
                     subtitle: Text('الكود: ${v.code} | ${v.fuelType} | ${v.model}'),
-                    trailing: IconButton(onPressed: () => _edit(v), icon: const Icon(Icons.edit)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(onPressed: () => _edit(v), tooltip: 'تعديل السيارة', icon: const Icon(Icons.edit)),
+                        const SizedBox(width: 6),
+                        IconButton(onPressed: () => _deleteVehicle(v), tooltip: 'حذف السيارة', icon: const Icon(Icons.delete_outline, color: Colors.red)),
+                      ],
+                    ),
                   );
                 },
               );

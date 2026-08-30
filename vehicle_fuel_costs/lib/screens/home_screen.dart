@@ -107,8 +107,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: const Text('دخول'),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    const Text('الحساب الأول للمدير: admin / 2600\nبعد الدخول يمكن إنشاء حسابات السائقين وربطها بالسيارات.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.black54)),
                   ]),
                 ),
               ),
