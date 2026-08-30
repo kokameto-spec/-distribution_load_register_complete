@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -27,7 +28,7 @@ class FuelingReportPage extends StatelessWidget {
               child: Column(
                 children: [
                   Row(
-                    textDirection: TextDirection.ltr,
+                    textDirection: ui.TextDirection.ltr,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Image.asset('assets/company_logo.png', width: 58, height: 58, fit: BoxFit.contain),
